@@ -1,0 +1,163 @@
+.policy-page * { margin: 0; padding: 0; box-sizing: border-box; }
+.policy-page {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f0f4f8;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+}
+.policy-container {
+    max-width: 900px;
+    width: 100%;
+    background: white;
+    border-radius: 28px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+    padding: 45px 50px;
+}
+.policy-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 30px;
+    border-bottom: 2px solid #e9edf2;
+    padding-bottom: 20px;
+    flex-wrap: wrap;
+}
+.policy-header .avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0b2a4a, #1a4a6e);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: white;
+    flex-shrink: 0;
+}
+.policy-header h1 {
+    font-size: 1.8rem;
+    font-weight: 600;
+    color: #0b2a4a;
+    margin-right: auto;
+}
+.policy-header a {
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: 500;
+    background: #f1f5f9;
+    padding: 8px 20px;
+    border-radius: 30px;
+    transition: 0.2s;
+}
+.policy-header a:hover {
+    background: #e2e8f0;
+    text-decoration: none;
+}
+.policy-page h2 {
+    font-size: 1.4rem;
+    color: #0b2a4a;
+    margin-top: 32px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #e9edf2;
+    padding-bottom: 6px;
+}
+.policy-page p, .policy-page li {
+    color: #1e293b;
+    line-height: 1.8;
+    font-size: 0.98rem;
+}
+.policy-page ul, .policy-page ol {
+    padding-left: 26px;
+    margin: 10px 0 18px;
+}
+.legal-note {
+    background: #f8fafc;
+    padding: 16px 20px;
+    border-radius: 12px;
+    border-left: 4px solid #2563eb;
+    margin: 16px 0;
+    font-size: 0.95rem;
+}
+.legal-note strong { color: #0b2a4a; }
+
+.cookie-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0 30px;
+    font-size: 0.9rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.cookie-table th {
+    background: #f1f5f9;
+    color: #0b2a4a;
+    font-weight: 600;
+    padding: 14px 18px;
+    text-align: left;
+    border-bottom: 2px solid #d1d9e6;
+}
+.cookie-table td {
+    padding: 14px 18px;
+    border-bottom: 1px solid #e9edf2;
+    vertical-align: top;
+}
+.cookie-table tr:last-child td { border-bottom: none; }
+.cookie-table code {
+    background: #f1f5f9;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+.badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 12px;
+    border-radius: 30px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    background: #e9edf2;
+    color: #1e293b;
+}
+.badge.essential { background: #1e293b; color: white; }
+.badge.functional { background: #8b5cf6; color: white; }
+.badge.analytics { background: #0ea5e9; color: white; }
+.badge.advertising { background: #f59e0b; color: white; }
+
+.policy-page .back-link {
+    display: inline-block;
+    margin-top: 30px;
+    padding: 12px 32px;
+    background: linear-gradient(135deg, #2563eb, #1e40af);
+    color: white;
+    border-radius: 30px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: 0.2s;
+    border: none;
+    cursor: pointer;
+}
+.policy-page .back-link:hover {
+    transform: scale(1.02);
+    box-shadow: 0 6px 14px rgba(37,99,235,0.3);
+}
+.footer-note {
+    margin-top: 30px;
+    font-size: 0.85rem;
+    color: #64748b;
+    border-top: 1px solid #e9edf2;
+    padding-top: 20px;
+    text-align: center;
+}
+.footer-note a { color: #2563eb; text-decoration: none; }
+.footer-note a:hover { text-decoration: underline; }
+
+@media (max-width: 700px) {
+    .policy-container { padding: 24px 20px; }
+    .policy-header h1 { font-size: 1.4rem; }
+    .cookie-table { font-size: 0.8rem; }
+    .cookie-table th, .cookie-table td { padding: 10px 12px; }
+    .policy-header a { margin-left: 0; width: 100%; text-align: center; }
+}

@@ -1,0 +1,34 @@
+# About Kaizy
+
+Kaizy is a medical equipment assistant chatbot developed by **Sagveek Technologies Pvt. Ltd.**. Our mission is to provide instant, accurate information about medical devices to healthcare professionals, patients, and medical equipment buyers.
+
+## Company
+**Kaizen ** is a leading provider of medical equipment information and digital health solutions. We are committed to improving healthcare outcomes by making device information accessible, understandable, and actionable. With over 10 years of experience in the medical technology sector, we bridge the gap between complex medical device specifications and the people who need them.
+
+## Bot Structure
+Kaizy is an AI‑powered assistant that uses retrieval‑augmented generation (RAG) to answer questions about medical devices. It connects to a comprehensive database of equipment specifications, features, uses, advantages, disadvantages, technical specifications, warranty details, and more. The bot is built on a Flask backend and uses a large language model (LLM) to generate conversational, accurate responses.
+
+## Capabilities
+- **Product Information**: Answers questions about medical devices, their features, uses, technical specifications, pricing, and more.
+- **Pros & Cons**: Explains advantages and disadvantages of each device.
+- **Warranty & Safety**: Provides warranty details and safety information when available.
+- **Inquiry Handling**: Directs users to the inquiry form for quotes or sales-related requests.
+- **Service Support**: Redirects service‑related queries (repairs, maintenance, installation) to our support team.
+
+## Limitations
+- **Medical Advice**: Kaizy does **not** provide medical advice. Always consult a qualified healthcare professional for clinical decisions.
+- **Database Scope**: Information is based on the available product database and may not be exhaustive. We continuously update our data.
+- **Urgent Support**: For urgent technical support or emergency assistance, please contact our support team directly using the details below.
+
+## Contact Information
+- **Email**: sales@kaizenmeds.com
+- **Phone**: +91 966 550 2190
+- **Website**: Kaizy.com
+- **Support Hours**: Monday‑Friday, 9:00 AM – 6:00 PsM (IST)
+
+## Privacy & Security
+Kaizy respects your privacy. We do not share your personal data with third parties. All chat data is anonymised and stored securely. For more details, see our Privacy Policy and Cookie Policy.
+
+---
+
+*Last updated: June 2026*

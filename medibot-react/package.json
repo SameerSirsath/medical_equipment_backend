@@ -1,0 +1,26 @@
+{
+  "name": "medibot-react",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+"scripts": {
+  "dev": "concurrently \"npm run server\" \"npm run vite\"",
+  "vite": "vite",
+  "server": "node server.js",
+  "build": "vite build",
+  "start": "NODE_ENV=production node server.js"
+},
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "http-proxy-middleware": "^4.1.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^9.1.2",
+    "vite": "^7.3.6"
+  }
+}

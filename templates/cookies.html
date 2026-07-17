@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cookie Policy – MediBot</title>
+    <style>
+        /* --- Global Reset & Font --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f4f8;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+        .policy-container {
+            max-width: 900px;
+            width: 100%;
+            background: white;
+            border-radius: 28px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            padding: 45px 50px;
+        }
+        /* --- Header --- */
+        .policy-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e9edf2;
+            padding-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .policy-header .avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #0b2a4a, #1a4a6e);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+            flex-shrink: 0;
+        }
+        .policy-header h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #0b2a4a;
+            margin-right: auto;
+        }
+        .policy-header a {
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: 500;
+            background: #f1f5f9;
+            padding: 8px 20px;
+            border-radius: 30px;
+            transition: 0.2s;
+        }
+        .policy-header a:hover {
+            background: #e2e8f0;
+            text-decoration: none;
+        }
+
+        /* --- Typography --- */
+        h2 {
+            font-size: 1.4rem;
+            color: #0b2a4a;
+            margin-top: 32px;
+            margin-bottom: 12px;
+            border-bottom: 1px solid #e9edf2;
+            padding-bottom: 6px;
+        }
+        p, li {
+            color: #1e293b;
+            line-height: 1.8;
+            font-size: 0.98rem;
+        }
+        ul, ol {
+            padding-left: 26px;
+            margin: 10px 0 18px;
+        }
+        .legal-note {
+            background: #f8fafc;
+            padding: 16px 20px;
+            border-radius: 12px;
+            border-left: 4px solid #2563eb;
+            margin: 16px 0;
+            font-size: 0.95rem;
+        }
+        .legal-note strong {
+            color: #0b2a4a;
+        }
+
+        /* --- Cookie Table --- */
+        .cookie-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0 30px;
+            font-size: 0.9rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .cookie-table th {
+            background: #f1f5f9;
+            color: #0b2a4a;
+            font-weight: 600;
+            padding: 14px 18px;
+            text-align: left;
+            border-bottom: 2px solid #d1d9e6;
+        }
+        .cookie-table td {
+            padding: 14px 18px;
+            border-bottom: 1px solid #e9edf2;
+            vertical-align: top;
+        }
+        .cookie-table tr:last-child td {
+            border-bottom: none;
+        }
+        .cookie-table code {
+            background: #f1f5f9;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+        .badge {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 2px 12px;
+            border-radius: 30px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            background: #e9edf2;
+            color: #1e293b;
+        }
+        .badge.essential { background: #1e293b; color: white; }
+        .badge.functional { background: #8b5cf6; color: white; }
+        .badge.analytics { background: #0ea5e9; color: white; }
+        .badge.advertising { background: #f59e0b; color: white; }
+
+        /* --- Buttons & Links --- */
+        .back-link {
+            display: inline-block;
+            margin-top: 30px;
+            padding: 12px 32px;
+            background: linear-gradient(135deg, #2563eb, #1e40af);
+            color: white;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: 0.2s;
+            border: none;
+            cursor: pointer;
+        }
+        .back-link:hover {
+            transform: scale(1.02);
+            box-shadow: 0 6px 14px rgba(37,99,235,0.3);
+        }
+        .footer-note {
+            margin-top: 30px;
+            font-size: 0.85rem;
+            color: #64748b;
+            border-top: 1px solid #e9edf2;
+            padding-top: 20px;
+            text-align: center;
+        }
+        .footer-note a {
+            color: #2563eb;
+            text-decoration: none;
+        }
+        .footer-note a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 700px) {
+            .policy-container { padding: 24px 20px; }
+            .policy-header h1 { font-size: 1.4rem; }
+            .cookie-table { font-size: 0.8rem; }
+            .cookie-table th, .cookie-table td { padding: 10px 12px; }
+            .policy-header a { margin-left: 0; width: 100%; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+    <div class="policy-container">
+        <div class="policy-header">
+            <div class="avatar">💊</div>
+            <h1>Cookie Policy</h1>
+            <a href="/">← Back to MediBot</a>
+        </div>
+
+        <!-- === INTRODUCTION === -->
+        <p><strong>Last updated:</strong> June 2026</p>
+        <p>
+            Please read this agreement carefully, as it contains important information regarding your 
+            legal rights and remedies.
+        </p>
+        <div class="legal-note">
+            <strong>We care about your privacy.</strong> This website uses cookies that are necessary 
+            for the site to work properly and to collect anonymous usage data to improve our service. 
+            By continuing to use MediBot, you agree to our use of cookies as described in this policy.
+        </div>
+
+        <!-- === GENERAL INFORMATION === -->
+        <h2>1. General Information About Cookies</h2>
+        <p>
+            We use cookies on our Website to ensure the chatbot functions correctly, to remember your 
+            selections during a session, and to understand how you interact with the assistant so we 
+            can continuously improve.
+        </p>
+        <p><strong>What is a cookie?</strong></p>
+        <p>
+            A cookie is a small file placed onto your device that enables our Website’s features 
+            and functionality. For example, cookies enable us to:
+        </p>
+        <ul>
+            <li>Maintain your active chat session (so you don’t lose your place)</li>
+            <li>Store your product selections and conversation history during a session</li>
+            <li>Remember your cookie consent preferences</li>
+            <li>Analyse anonymised usage patterns to improve the chatbot’s responses</li>
+        </ul>
+        <p>
+            We <strong>do not</strong> sell your personal information. We do not use cookies for 
+            advertising, and we do not share your data with third parties for marketing purposes.
+        </p>
+
+        <!-- === COOKIES WE USE === -->
+        <h2>2. Cookies Used on the Website</h2>
+        <p>
+            Below is a detailed list of all cookies we set, their purpose, expiry, and category. 
+            We only use first‑party cookies – we do not set any third‑party cookies.
+        </p>
+
+        <table class="cookie-table">
+            <thead>
+                <tr>
+                    <th>Cookie Name</th>
+                    <th>Purpose</th>
+                    <th>Expiry / Duration</th>
+                    <th>Category</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>session</code></td>
+                    <td>
+                        Maintains your chat session: stores product ID, chat history, and context 
+                        so the bot can remember what you’ve talked about.
+                    </td>
+                    <td>Session (browser close) or up to 1 day (as set by server)</td>
+                    <td><span class="badge essential">Essential</span></td>
+                </tr>
+                <tr>
+                    <td><code>cookie_consent</code></td>
+                    <td>
+                        Stores your cookie preference choices (which categories you have allowed). 
+                        Used to respect your privacy settings.
+                    </td>
+                    <td>365 days</td>
+                    <td><span class="badge essential">Essential</span></td>
+                </tr>
+                <tr>
+                    <td><code>cookie_consent_dismissed</code></td>
+                    <td>
+                        Indicates that you have dismissed the cookie banner without explicitly saving 
+                        preferences; prevents the banner from reappearing on every page load.
+                    </td>
+                    <td>1 day</td>
+                    <td><span class="badge functional">Functional</span></td>
+                </tr>
+                <!-- You can add more if you later introduce analytics cookies -->
+                <!--
+                <tr>
+                    <td><code>_ga</code> (example)</td>
+                    <td>Used by Google Analytics to distinguish unique users.</td>
+                    <td>2 years</td>
+                    <td><span class="badge analytics">Analytics</span></td>
+                </tr>
+                -->
+            </tbody>
+        </table>
+
+        <p><strong>Category explanations:</strong></p>
+        <ul>
+            <li><strong>Essential (Strictly Necessary):</strong> These cookies are required for the chatbot to function. They enable session management, product selection, chat history, and consent storage. They cannot be turned off.</li>
+            <li><strong>Functional:</strong> These are not currently used for essential functionality, but we include the category for future improvements (e.g., remembering UI preferences).</li>
+            <li><strong>Analytics:</strong> We do not use any analytics cookies at present. However, we may collect anonymised usage data on our server (not via cookies) to improve the service. You will be informed before any such cookies are introduced.</li>
+            <li><strong>Advertising:</strong> We do not display ads and do not use advertising cookies.</li>
+        </ul>
+
+        <!-- === THIRD‑PARTY COOKIES === -->
+        <h2>3. Third‑Party Cookies</h2>
+        <p>
+            MediBot does not use any third‑party cookies. We do not integrate with social networks, 
+            advertising networks, or external analytics platforms that would set their own cookies 
+            on your device. All cookies listed above are set directly by our domain.
+        </p>
+
+        <!-- === CONSENT AND CHOICES === -->
+        <h2>4. Your Consent and Choices</h2>
+        <p>
+            When you first visit MediBot, you will see a cookie banner that lets you:
+        </p>
+        <ul>
+            <li><strong>Accept all</strong> – allows all categories (currently only essential and functional).</li>
+            <li><strong>Reject all</strong> – blocks optional cookies (functional) and keeps only essential ones.</li>
+            <li><strong>Preferences</strong> – customise your settings per category.</li>
+        </ul>
+        <p>
+            You can change your preferences at any time by clicking the <strong>“Preferences”</strong> 
+            link on the cookie banner. Additionally, you can manage cookies directly in your browser 
+            settings; however, disabling essential cookies will prevent the chatbot from working properly.
+        </p>
+        <p>
+            <strong>Opt‑out of analytics:</strong> Since we do not currently use analytics cookies, 
+            this does not apply. If we introduce analytics cookies in the future, we will provide 
+            an opt‑out mechanism (e.g., via Google Analytics opt‑out add‑on).
+        </p>
+
+        <!-- === DATA STORAGE === -->
+        <h2>5. Data Storage and Security</h2>
+        <p>
+            Any data collected via cookies (such as session identifiers and chat history) is stored 
+            securely on our servers. We do not sell, share, or otherwise disclose your personal data 
+            to third parties except as required by law. For more details, please see our 
+            <a href="/privacy" style="color:#2563eb;">Privacy Policy</a> 
+        </p>
+        <p>
+            You may request that we delete all data collected about you (including from cookies) by 
+            contacting us at <a href="mailto:privacy@medibot.example.com" style="color:#2563eb;">privacy@medibot.example.com</a>. 
+            We will respond within 30 days.
+        </p>
+
+        <!-- === UPDATES === -->
+        <h2>6. Updates to This Policy</h2>
+        <p>
+            This Cookie Policy may be updated from time to time to reflect changes in our practices 
+            or for legal reasons. We will inform you by posting the new version on this page. 
+            We encourage you to check this page periodically for any changes.
+        </p>
+
+        <!-- === CONTACT === -->
+        <h2>7. Contact Us</h2>
+        <p>
+            If you have any questions about our cookie policy, please contact us at:
+        </p>
+        <p>
+            <strong>Email:</strong> <a href="mailto:privacy@medibot.example.com" style="color:#2563eb;">privacy@medibot.example.com</a><br />
+            <strong>Address:</strong> Pune, India
+        </p>
+
+        <!-- Back Link -->
+        <a href="/" class="back-link">← Return to MediBot</a>
+
+        <div class="footer-note">
+            &copy; 2026 MediBot – Medical Equipment Assistant &nbsp;|&nbsp; 
+            <a href="/cookies">Cookie Policy</a> &nbsp;|&nbsp; 
+            <a href="/privacy">Privacy Policy</a>
+        </div>
+    </div>
+</body>
+</html>

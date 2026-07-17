@@ -1,0 +1,57 @@
+# Python virtual environment
+venv/
+env/
+.venv/
+
+# Environment variables
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE folders
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Flask session files
+flask_session/
+
+# Database files (if any)
+*.db
+*.sqlite3
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+encryption_key.py
+decryption_inquiries.py
+decryption_chat.py
+agent.txt
+
+requirement.txt
+decrypted_outputs/
+test_key.py
+test_encryption_inquiry.py
+test_agent.py
+
+medibot-react/dist/
+medibot-react/node_modules/
+medibot-react.zip
+export.py
+run.bat
+check_db_time_format.py
+db_helper.py.backup
+model_list_test.py
+test.py
+test.bat
+test2.bat
+

@@ -1,0 +1,1831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KAIZY – Medical Equipment Assistant</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f4f8;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* ---------- floating widget ---------- */
+        .chat-widget {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        /* ---------- Ask AI button ---------- */
+        .ask-ai-btn {
+            width: auto;
+            padding: 12px 24px;
+            height: 54px;
+            border-radius: 30px;
+            background: linear-gradient(135deg, #0b2a4a, #1a4a6e);
+            color: white;
+            border: none;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.25);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            font-family: 'Segoe UI', sans-serif;
+            letter-spacing: 0.3px;
+            position: relative;
+            z-index: 2;
+            white-space: nowrap;
+        }
+        .ask-ai-btn:hover {
+            transform: scale(1.04);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+        }
+        .ask-ai-btn .icon {
+            font-size: 1.4rem;
+            line-height: 1;
+        }
+
+        /* ---------- chat panel ---------- */
+        .chat-panel {
+            position: fixed;
+            bottom: 50px;
+            right: 30px;
+            width: 500px;
+            max-width: 92vw;
+            height: 90vh;
+            max-height: 850px;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            z-index: 3;
+            opacity: 0;
+            transform: translateY(20px) scale(0.96);
+            pointer-events: none;
+        }
+        .chat-panel.open {
+            display: flex;
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+        }
+        .chat-panel.closing {
+            opacity: 0;
+            transform: translateY(30px) scale(0.95);
+            transition: all 0.25s ease-in;
+        }
+
+        .chat-panel.maximized {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(1);
+            width: 800px;
+            max-width: 92vw;
+            height: 90vh;
+            max-height: 90vh;
+            border-radius: 28px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+            border: none;
+            backdrop-filter: none;
+            display: flex;
+            overflow: hidden;
+        }
+        .chat-panel.maximized.open {
+            transform: translate(-50%, -50%) scale(1);
+        }
+        .chat-panel:not(.maximized) {
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* ---------- header ---------- */
+        .chat-header {
+            padding: 16px 20px;
+            background: linear-gradient(135deg, #0b2a4a, #1a4a6e);
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 10;
+        }
+        .chat-header .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: px;
+            font-weight: bold;
+            overflow: hidden;
+        }
+        .chat-header .avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+        .chat-header h2 { font-size: 1.5rem; font-weight: 600; flex: 1; }
+        .chat-header small { font-weight: 400; opacity: 0.8; font-size: 0.75rem; }
+        .header-actions {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .header-actions button {
+            background: rgba(255,255,255,0.15);
+            border: none;
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.2s;
+        }
+        .header-actions button:hover { background: rgba(255,255,255,0.3); }
+        .header-actions .end-chat-btn {
+            background: rgba(255,70,70,0.25);
+        }
+        .header-actions .end-chat-btn:hover {
+            background: rgba(255,70,70,0.45);
+        }
+
+        /* ---- auth ---- */
+        .auth-container {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+        }
+        .auth-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .auth-dropdown .auth-btn {
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: 0.2s;
+            user-select: none;
+        }
+        .auth-dropdown .auth-btn:hover { background: rgba(255,255,255,0.25); }
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            background: white;
+            min-width: 120px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+            border-radius: 12px;
+            overflow: hidden;
+            z-index: 1000;
+            margin-top: 6px;
+        }
+        .dropdown-content a {
+            color: #0b2a4a;
+            padding: 10px 16px;
+            text-decoration: none;
+            display: block;
+            font-size: 0.85rem;
+            transition: 0.2s;
+            cursor: pointer;
+        }
+        .dropdown-content a:hover { background: #f0f4f8; }
+        .auth-dropdown.active .dropdown-content { display: block; }
+
+        .user-greeting-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+        .user-greeting {
+            cursor: pointer;
+            user-select: none;
+            font-size: 0.75rem;
+            opacity: 0.9;
+            display: inline-block;
+        }
+        .user-dropdown {
+            display: none;
+            position: absolute;
+            right: 0;
+            background: white;
+            min-width: 160px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+            border-radius: 12px;
+            overflow: hidden;
+            z-index: 1000;
+            margin-top: 4px;
+        }
+        .user-dropdown a {
+            color: #0b2a4a;
+            padding: 10px 16px;
+            text-decoration: none;
+            display: block;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+        .user-dropdown a:hover { background: #f0f4f8; }
+        .user-dropdown.open { display: block; }
+
+        /* ---------- messages ---------- */
+        .chat-messages {
+            flex: 1;
+            padding: 16px 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: #f9fbfd;
+            position: relative;
+            z-index: 1;
+        }
+        .message { display: flex; flex-direction: column; max-width: 85%; animation: fadeSlide 0.3s ease; }
+        .message.user { align-self: flex-end; }
+        .message.bot { align-self: flex-start; }
+        .bubble { padding: 10px 16px; border-radius: 18px; line-height: 1.5; font-size: 0.9rem; word-wrap: break-word; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .bubble b { font-weight: 700; color: #0b2a4a; }
+        .user .bubble { background: linear-gradient(135deg, #2563eb, #1e40af); color: white; border-bottom-right-radius: 4px; }
+        .user .bubble b { color: white; }
+        .bot .bubble { background: white; border: 1px solid #e2e8f0; color: #0f172a; border-bottom-left-radius: 4px; }
+        .timestamp { font-size: 0.6rem; margin-top: 3px; color: #94a3b8; padding: 0 10px; }
+        .user .timestamp { text-align: right; }
+        @keyframes fadeSlide { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .bot .bubble ul, .bot .bubble ol { padding-left: 18px; margin: 6px 0; }
+        .bot .bubble li { margin-bottom: 3px; }
+        .bot .bubble table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 0.85rem; border-radius: 6px; overflow: hidden; }
+        .bot .bubble th { background: #f1f2f3; font-weight: 600; padding: 8px 12px; text-align: left; }
+        .bot .bubble td { padding: 8px 12px; border-bottom: 1px solid #e9edf2; background: white; }
+        .bot .bubble tr:last-child td { border-bottom: none; }
+
+        .option-btn { display: inline-block; background: rgba(37,99,235,0.08); border: 1px solid rgba(37,99,235,0.2); padding: 5px 14px; border-radius: 30px; margin: 3px 3px 3px 0; cursor: pointer; font-size: 0.8rem; font-weight: 500; color: #1e293b; transition: all 0.2s; user-select: none; font-family: inherit; }
+        .option-btn:hover { background: rgba(37,99,235,0.18); transform: translateY(-2px); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .option-btn:active { transform: scale(0.96); }
+        .option-btn.primary { background: #2563eb; color: white; border-color: #2563eb; }
+        .option-btn.primary:hover { background: #1e40af; }
+
+        /* Disabled submit button – greyed out and unclickable */
+        #submitInquiryBtn:disabled,
+        #sendOtpBtn:disabled,
+        #signupSendOtpBtn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+            background: #94a3b8;
+            box-shadow: none;
+        }
+
+        .suggestion-area {
+            padding: 8px 20px 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            background: #f9fbfd;
+            border-top: 1px solid #e9edf2;
+            flex-shrink: 0;
+            min-height: 44px;
+            position: relative;
+            z-index: 1;
+        }
+        .suggestion-chip {
+            background: rgba(37,99,235,0.08);
+            color: #1e293b;
+            padding: 5px 14px;
+            border-radius: 30px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid rgba(37,99,235,0.1);
+            user-select: none;
+            font-weight: 500;
+        }
+        .suggestion-chip:hover { background: rgba(37,99,235,0.18); transform: translateY(-2px); }
+
+        .input-area {
+            display: flex;
+            padding: 10px 20px 16px;
+            gap: 10px;
+            background: #f9fbfd;
+            border-top: 1px solid #e9edf2;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 1;
+        }
+        .input-area input {
+            flex: 1;
+            padding: 10px 16px;
+            border-radius: 30px;
+            border: 1px solid #d1d9e6;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border 0.2s;
+            background: white;
+        }
+        .input-area input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+        .input-area input:disabled { background: #f1f4f9; cursor: not-allowed; }
+        .input-area button {
+            padding: 10px 24px;
+            border-radius: 30px;
+            border: none;
+            background: linear-gradient(135deg, #2563eb, #1e40af);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .input-area button:hover:not(:disabled) { transform: scale(1.02); box-shadow: 0 4px 12px rgba(37,99,235,0.3); }
+        .input-area button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .typing-dots { display: inline-flex; gap: 4px; }
+        .typing-dots span { width: 8px; height: 8px; background: #94a3b8; border-radius: 50%; animation: typing 1.2s infinite; }
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing { 0%, 60%, 100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-6px); opacity: 1; } }
+
+        .chat-messages::-webkit-scrollbar { width: 4px; }
+        .chat-messages::-webkit-scrollbar-track { background: #e9edf2; border-radius: 10px; }
+        .chat-messages::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 10px; }
+
+        .cookie-banner {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            padding: 10px 16px;
+            margin: 0 16px 8px 16px;
+            border: 1px solid #e9edf2;
+            display: none;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 1;
+        }
+        .cookie-banner .cookie-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+        .cookie-banner .cookie-header .cookie-close { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #94a3b8; padding: 0 4px; }
+        .cookie-banner p { font-size: 0.8rem; color: #475569; margin-bottom: 8px; line-height: 1.4; }
+        .cookie-banner .cookie-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .cookie-banner .cookie-actions button { padding: 4px 12px; border-radius: 30px; border: none; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 0.75rem; }
+        .cookie-banner .cookie-actions .btn-accept { background: #2563eb; color: white; }
+        .cookie-banner .cookie-actions .btn-reject { background: #e9edf2; color: #1e293b; }
+        .cookie-banner .cookie-actions .btn-preferences { background: none; color: #2563eb; text-decoration: underline; padding: 4px 8px; font-size: 0.75rem; }
+        .cookie-banner .cookie-actions a { font-size: 0.75rem; color: #2563eb; margin-left: auto; text-decoration: underline; }
+
+        .chat-footer {
+            text-align: center;
+            padding: 4px 0;
+            font-size: 0.9rem;
+            color: #94a3b8;
+            border-top: 1px solid #e9edf2;
+            background: #f9fbfd;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 1;
+        }
+        .chat-footer a { color: #2563eb; text-decoration: none; }
+        .chat-footer a:hover { text-decoration: underline; }
+
+        /* ---------- MODALS inside panel ---------- */
+        .modal-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.45);
+            backdrop-filter: blur(3px);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+            border-radius: inherit;
+            overflow: hidden;
+        }
+        .modal-overlay.active { display: flex; }
+
+        .modal-box {
+            background: white;
+            padding: 30px 30px;
+            border-radius: 24px;
+            max-width: 450px;
+            width: 90%;
+            max-height: 90%;
+            overflow-y: auto;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            animation: modalIn 0.3s ease;
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.95) translateY(20px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .modal-box h3 { margin-bottom: 6px; color: #0b2a4a; }
+        .modal-box p { color: #475569; font-size: 0.85rem; margin-bottom: 16px; }
+        .modal-box label { font-size: 0.75rem; font-weight: 600; color: #1e293b; display: block; margin-top: 12px; margin-bottom: 4px; }
+
+        /* ---------- validation error messages ---------- */
+        .error-message {
+            color: #ef4444;
+            font-size: 0.75rem;
+            margin-top: 4px;
+            display: none;
+        }
+        .error-message.visible {
+            display: block;
+        }
+        .input-error {
+            border-color: #ef4444 !important;
+        }
+        .password-requirements {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-top: 4px;
+        }
+        .password-requirements .valid {
+            color: #16a34a;
+        }
+        .password-requirements .invalid {
+            color: #ef4444;
+        }
+
+        .modal-box input {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1px solid #d1d9e6;
+            font-size: 0.9rem;
+            outline: none;
+        }
+        .modal-box input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+        .modal-box input.input-error:focus { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,0.1); }
+
+        .modal-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+        .modal-actions button {
+            padding: 8px 20px;
+            border-radius: 30px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .modal-actions .btn-primary { background: linear-gradient(135deg, #2563eb, #1e40af); color: white; }
+        .modal-actions .btn-secondary { background: #e9edf2; color: #1e293b; }
+        .modal-actions button:hover { transform: scale(1.02); }
+
+        .modal-box.wide { max-width: 700px; }
+
+        .preferences-modal-box {
+            background: white;
+            padding: 25px 30px;
+            border-radius: 20px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .pref-category { border-bottom: 1px solid #e9edf2; padding: 10px 0; }
+        .pref-category:last-child { border-bottom: none; }
+        .pref-category .pref-header { display: flex; justify-content: space-between; align-items: center; }
+        .pref-category .pref-header label { font-weight: 600; color: #0b2a4a; font-size: 0.9rem; }
+        .pref-category .pref-header input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+        .pref-category .pref-header input[type="checkbox"]:disabled { opacity: 0.6; cursor: not-allowed; }
+        .pref-category .pref-desc { font-size: 0.75rem; color: #64748b; margin-top: 3px; }
+        .pref-actions { display: flex; gap: 12px; margin-top: 20px; justify-content: flex-end; }
+        .pref-actions button { padding: 8px 24px; border-radius: 30px; border: none; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .pref-actions .btn-save { background: #2563eb; color: white; }
+        .pref-actions .btn-save:hover { background: #1e40af; }
+        .pref-actions .btn-close-pref { background: #e9edf2; color: #1e293b; }
+
+        /* ---------- password toggle ---------- */
+        .password-wrapper {
+            position: relative;
+            width: 100%;
+        }
+        .password-wrapper input {
+            padding-right: 44px;
+        }
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 0;
+            color: #94a3b8;
+            transition: color 0.2s;
+        }
+        .toggle-password:hover {
+            color: #1e293b;
+        }
+
+        /* ---------- responsive ---------- */
+        @media (max-width: 600px) {
+            .chat-panel {
+                width: 100%;
+                max-width: 100%;
+                bottom: 0;
+                right: 0;
+                height: 92vh;
+                max-height: 92vh;
+                border-radius: 20px 20px 0 0;
+                box-shadow: 0 -10px 30px rgba(0,0,0,0.15);
+            }
+            .chat-panel.maximized {
+                width: 100vw;
+                height: 100vh;
+                max-height: 100vh;
+                border-radius: 0;
+                top: 0;
+                left: 0;
+                transform: none;
+                box-shadow: none;
+            }
+            .ask-ai-btn {
+                padding: 10px 18px;
+                font-size: 0.95rem;
+                height: 46px;
+            }
+            .ask-ai-btn .icon {
+                font-size: 1.2rem;
+            }
+            .chat-header { padding: 12px 16px; }
+            .chat-header h2 { font-size: 0.9rem; }
+            .chat-header .avatar { width: 32px; height: 32px; }
+            .chat-messages { padding: 12px 16px; gap: 8px; }
+            .bubble { padding: 8px 12px; font-size: 0.85rem; }
+            .suggestion-area { padding: 6px 16px 10px; min-height: 36px; }
+            .suggestion-chip { font-size: 0.7rem; padding: 4px 10px; }
+            .input-area { padding: 8px 16px 14px; gap: 8px; }
+            .input-area input { padding: 10px 14px; font-size: 0.85rem; }
+            .input-area button { padding: 10px 18px; font-size: 0.85rem; min-height: 44px; }
+            .chat-footer { font-size: 0.6rem; padding: 4px 0; }
+            .cookie-banner { padding: 8px 12px; margin: 0 12px 6px 12px; }
+            .cookie-banner p { font-size: 0.75rem; }
+            .modal-box { max-width: 95%; padding: 20px; }
+            .modal-box.wide { max-width: 95%; }
+            .preferences-modal-box { max-width: 95%; padding: 20px; }
+            .option-btn, .suggestion-chip { padding: 8px 16px; font-size: 0.85rem; }
+            .auth-btn { padding: 6px 14px; font-size: 0.8rem; }
+        }
+
+        @media (min-width: 601px) and (max-width: 1024px) {
+            .chat-panel.maximized {
+                width: 90vw;
+                max-width: 700px;
+                height: 85vh;
+                max-height: 85vh;
+                border-radius: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ========== CHAT WIDGET ========== -->
+<div class="chat-widget">
+    <!-- Ask AI Button -->
+    <button class="ask-ai-btn" id="chatToggle" aria-label="Open AI chat">
+        <span class="icon">✨</span> Ask KAIZY
+    </button>
+
+    <!-- Chat Panel -->
+    <div class="chat-panel" id="chatPanel">
+        <!-- Header -->
+        <div class="chat-header">
+            <div class="avatar">
+                <img src="{{ url_for('static', filename='IMG.png') }}" alt="KAIZY" />
+            </div>
+            <h2>KAIZY</h2>
+            <div class="auth-container" id="authContainer">
+                <div class="auth-dropdown" id="authDropdown">
+                    <button class="auth-btn" id="accountBtn">Account ▾</button>
+                    <div class="dropdown-content">
+                        <a onclick="openModal('loginModal')">Login</a>
+                        <a onclick="openModal('signupModal')">Sign Up</a>
+                    </div>
+                </div>
+                <div class="user-greeting-wrapper" id="userGreetingWrapper" style="display:none;">
+                    <span class="user-greeting" id="userGreeting" onclick="toggleUserDropdown()">👋 <span id="usernameDisplay"></span> ▾</span>
+                    <div class="user-dropdown" id="userDropdown">
+                        <a onclick="showChatHistory()">💬 Chat History</a>
+                        <a onclick="showMyRequests()">📋 My Requests</a>
+                        <a onclick="logout()">🚪 Logout</a>
+                    </div>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button id="maximizeBtn" title="Maximize">🗖</button>
+                <button id="closePanelBtn" title="Minimize">&ndash;</button>
+                <button class="end-chat-btn" id="endChatBtn" title="End chat" aria-label="End chat">✕</button>
+            </div>
+        </div>
+
+        <!-- Messages -->
+        <div class="chat-messages" id="chatMessages"></div>
+
+        <!-- Suggestion Area -->
+        <div class="suggestion-area" id="suggestionArea"></div>
+
+        <!-- Cookie Banner -->
+        <div class="cookie-banner" id="cookieBanner">
+            <div class="cookie-header">
+                <span style="font-weight:600; color:#0b2a4a;">🍪 Cookie Preferences</span>
+                <button class="cookie-close" id="cookieCloseBtn">×</button>
+            </div>
+            <p>We use essential cookies. <a href="/cookies" target="_blank">Learn more</a></p>
+            <div class="cookie-actions">
+                <button class="btn-accept" id="cookieAcceptBtn">Accept</button>
+                <button class="btn-reject" id="cookieRejectBtn">Reject</button>
+                <button class="btn-preferences" id="cookiePrefBtn">Preferences</button>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="input-area">
+            <input type="text" id="userInput" placeholder="Ask me anything..." autocomplete="off" disabled>
+            <button id="sendBtn" disabled>Send</button>
+        </div>
+
+        <!-- Footer -->
+        <div class="chat-footer">
+            <span>
+                AI can make mistakes. By using KAIZY, you agree to our 
+                <a href="/privacy" target="_blank">Privacy Policy</a> and 
+                <a href="/cookies" target="_blank">Cookies Policy</a>.
+            </span>
+        </div>
+
+        <!-- ========== MODALS (inside the panel) ========== -->
+        <!-- Inquiry Modal -->
+        <div class="modal-overlay" id="inquiryModal">
+            <div class="modal-box">
+                <h3>📩 Request a Quote / More Details</h3>
+                <p>Please fill in your details and verify your contact.</p>
+                <form id="inquiryForm" novalidate>
+                    <label>Your Name *</label>
+                    <input type="text" id="inqName" required maxlength="50" pattern="[A-Za-z ]+">
+                    <div class="error-message" id="inqNameError">Name should contain only letters and spaces (max 50 chars).</div>
+
+                    <label>Email Address *</label>
+                    <input type="email" id="inqEmail" required>
+                    <div class="error-message" id="inqEmailError">Please enter a valid Gmail address (e.g., user@gmail.com).</div>
+
+                    <label>Contact Number *</label>
+                    <input type="tel" id="inqContact" required maxlength="10" pattern="[0-9]{10}">
+                    <div class="error-message" id="inqContactError">Contact number must be exactly 10 digits.</div>
+
+                    <div id="otpSection" style="display:none; margin-top:10px;">
+                        <label>OTP Code</label>
+                        <div style="display:flex; gap:10px;">
+                            <input type="text" id="inqOtp" placeholder="Enter 6-digit OTP" style="flex:1;" maxlength="6" pattern="[0-9]{6}">
+                            <button type="button" id="verifyOtpBtn" class="btn-primary" style="padding:8px 16px;">Verify OTP</button>
+                        </div>
+                        <p id="otpStatus" style="font-size:0.8rem; margin-top:4px;"></p>
+                    </div>
+                    <div class="modal-actions" style="flex-wrap:wrap; gap:8px;">
+                        <button type="button" id="sendOtpBtn" class="btn-secondary" style="flex:1;" disabled>Send OTP</button>
+                        <button type="button" class="btn-secondary" onclick="closeModal('inquiryModal')">Cancel</button>
+                        <button type="submit" id="submitInquiryBtn" class="btn-primary" disabled>Submit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Login Modal -->
+        <div class="modal-overlay" id="loginModal">
+            <div class="modal-box">
+                <h3>🔐 Login</h3>
+                <form id="loginForm">
+                    <label>Email or Phone</label>
+                    <input type="text" id="loginContact" required>
+                    <label>Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="loginPassword" required>
+                        <button type="button" class="toggle-password" data-target="loginPassword" aria-label="Toggle password visibility">👁️</button>
+                    </div>
+                    <p id="loginError" style="color:red;display:none;"></p>
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary" onclick="closeModal('loginModal')">Cancel</button>
+                        <button type="submit" class="btn-primary">Login</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Signup Modal -->
+        <div class="modal-overlay" id="signupModal">
+            <div class="modal-box">
+                <h3>📝 Sign Up</h3>
+                <div id="signupStep1">
+                    <form id="signupFormStep1" novalidate>
+                        <label>Username *</label>
+                        <input type="text" id="signupUsername" required maxlength="50" pattern="[A-Za-z ]+">
+                        <div class="error-message" id="signupUsernameError">Username should contain only letters and spaces (max 50 chars).</div>
+
+                        <label>Email *</label>
+                        <input type="email" id="signupEmail" required>
+                        <div class="error-message" id="signupEmailError">Please enter a valid Gmail address (e.g., user@gmail.com).</div>
+
+                        <label>Phone *</label>
+                        <input type="tel" id="signupPhone" required maxlength="10" pattern="[0-9]{10}">
+                        <div class="error-message" id="signupPhoneError">Phone number must be exactly 10 digits.</div>
+
+                        <label>Password *</label>
+                        <div class="password-wrapper">
+                            <input type="password" id="signupPassword" required>
+                            <button type="button" class="toggle-password" data-target="signupPassword" aria-label="Toggle password visibility">👁️</button>
+                        </div>
+                        <div class="password-requirements" id="passwordRequirements">
+                            <div id="pwLength">🔹 At least 8 characters</div>
+                            <div id="pwUppercase">🔹 At least one uppercase letter</div>
+                            <div id="pwLowercase">🔹 At least one lowercase letter</div>
+                            <div id="pwDigit">🔹 At least one number</div>
+                            <div id="pwSpecial">🔹 At least one special character (!@#$%^&*)</div>
+                        </div>
+                        <div class="error-message" id="signupPasswordError">Please meet all password requirements.</div>
+
+                        <p id="signupError" style="color:red;display:none;"></p>
+                        <div class="modal-actions">
+                            <button type="button" class="btn-secondary" onclick="closeModal('signupModal')">Cancel</button>
+                            <button type="submit" id="signupSendOtpBtn" class="btn-primary" disabled>Send OTP</button>
+                        </div>
+                    </form>
+                </div>
+                <div id="signupStep2" style="display:none;">
+                    <p>We sent a 6‑digit OTP to your email.</p>
+                    <form id="signupFormStep2">
+                        <label>OTP</label>
+                        <input type="text" id="signupOtp" required maxlength="6" pattern="[0-9]{6}">
+                        <p id="signupOtpError" style="color:red;display:none;"></p>
+                        <div class="modal-actions">
+                            <button type="button" class="btn-secondary" onclick="goToSignupStep1()">Back</button>
+                            <button type="submit" class="btn-primary">Verify & Sign Up</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat History Modal -->
+        <div class="modal-overlay" id="chatHistoryModal">
+            <div class="modal-box wide">
+                <h3>💬 Your Chat History</h3>
+                <div id="chatHistoryContent" style="max-height:400px; overflow-y:auto; margin-top:10px;"></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeModal('chatHistoryModal')">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- My Requests Modal -->
+        <div class="modal-overlay" id="myRequestsModal">
+            <div class="modal-box wide">
+                <h3>📋 Your Requests</h3>
+                <div id="myRequestsContent" style="max-height:400px; overflow-y:auto; margin-top:10px;"></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeModal('myRequestsModal')">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Preferences Modal -->
+        <div class="modal-overlay" id="preferencesModal">
+            <div class="preferences-modal-box">
+                <h3>Cookie Preferences</h3>
+                <p style="color:#64748b;font-size:0.9rem;margin-bottom:16px;">Choose which cookies you allow.</p>
+                <div class="pref-category">
+                    <div class="pref-header">
+                        <label>Essential – Always Active</label>
+                        <input type="checkbox" checked disabled>
+                    </div>
+                    <div class="pref-desc">Necessary for the chatbot to function.</div>
+                </div>
+                <div class="pref-category">
+                    <div class="pref-header">
+                        <label>Functional</label>
+                        <input type="checkbox" id="prefPerformance">
+                    </div>
+                    <div class="pref-desc">Not currently used.</div>
+                </div>
+                <div class="pref-category">
+                    <div class="pref-header">
+                        <label>Analytics</label>
+                        <input type="checkbox" id="prefAnalytics">
+                    </div>
+                    <div class="pref-desc">We do not use analytics cookies.</div>
+                </div>
+                <div class="pref-category">
+                    <div class="pref-header">
+                        <label>Advertising</label>
+                        <input type="checkbox" id="prefAdvertising">
+                    </div>
+                    <div class="pref-desc">No advertising cookies.</div>
+                </div>
+                <div class="pref-actions">
+                    <button class="btn-close-pref" id="prefCloseBtn">Cancel</button>
+                    <button class="btn-save" id="prefSaveBtn">Save</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- End Chat Confirmation Modal -->
+        <div class="modal-overlay" id="endChatModal">
+            <div class="modal-box">
+                <h3>⚠️ End Chat</h3>
+                <p>Do you really want to end this chat? All messages will be cleared from the window (but will remain in your chat history).</p>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" id="endChatNo">No</button>
+                    <button type="button" class="btn-primary" id="endChatYes">Yes, end chat</button>
+                </div>
+            </div>
+        </div>
+
+    </div> <!-- end chat-panel -->
+</div> <!-- end chat-widget -->
+
+<!-- ========== JAVASCRIPT ========== -->
+<script>
+    // ---- Data from Flask ----
+    const categories = JSON.parse('{{ categories | tojson | safe }}');
+    const productsByCategory = JSON.parse('{{ products_by_category | tojson | safe }}');
+
+    // ---- State ----
+    let currentStep = 'category';
+    let currentCategory = null;
+    let currentProductId = null;
+    let currentProductName = null;
+    let lastUserMessage = '';
+    let currentUser = null;
+    let otpVerified = false;
+    let pendingInquiryData = null;
+    let isClosing = false;
+
+    // ---- DOM refs for widgets ----
+    const toggleBtn = document.getElementById('chatToggle');
+    const panel = document.getElementById('chatPanel');
+    const closeBtn = document.getElementById('closePanelBtn');
+    const maxBtn = document.getElementById('maximizeBtn');
+    const endChatBtn = document.getElementById('endChatBtn');
+    const endChatModal = document.getElementById('endChatModal');
+    const endChatYes = document.getElementById('endChatYes');
+    const endChatNo = document.getElementById('endChatNo');
+    const chatMessages = document.getElementById('chatMessages');
+    const suggestionArea = document.getElementById('suggestionArea');
+    const userInput = document.getElementById('userInput');
+    const sendBtn = document.getElementById('sendBtn');
+
+    // ---- Signup elements ----
+    const signupUsername = document.getElementById('signupUsername');
+    const signupEmail = document.getElementById('signupEmail');
+    const signupPhone = document.getElementById('signupPhone');
+    const signupPassword = document.getElementById('signupPassword');
+    const signupSendOtpBtn = document.getElementById('signupSendOtpBtn');
+    const signupUsernameError = document.getElementById('signupUsernameError');
+    const signupEmailError = document.getElementById('signupEmailError');
+    const signupPhoneError = document.getElementById('signupPhoneError');
+    const signupPasswordError = document.getElementById('signupPasswordError');
+    const pwLength = document.getElementById('pwLength');
+    const pwUppercase = document.getElementById('pwUppercase');
+    const pwLowercase = document.getElementById('pwLowercase');
+    const pwDigit = document.getElementById('pwDigit');
+    const pwSpecial = document.getElementById('pwSpecial');
+
+    // ---- Inquiry elements ----
+    const inqName = document.getElementById('inqName');
+    const inqEmail = document.getElementById('inqEmail');
+    const inqContact = document.getElementById('inqContact');
+    const inqSendOtpBtn = document.getElementById('sendOtpBtn');
+    const inqSubmitBtn = document.getElementById('submitInquiryBtn');
+    const inqNameError = document.getElementById('inqNameError');
+    const inqEmailError = document.getElementById('inqEmailError');
+    const inqContactError = document.getElementById('inqContactError');
+
+    // ---- Validation helper functions ----
+    function validateName(name) {
+        return /^[A-Za-z ]+$/.test(name) && name.length <= 50 && name.length > 0;
+    }
+    function validateEmail(email) {
+        return /^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email);
+    }
+    function validatePhone(phone) {
+        return /^[0-9]{10}$/.test(phone);
+    }
+    function validatePassword(password) {
+        const minLen = 8;
+        const hasUpper = /[A-Z]/.test(password);
+        const hasLower = /[a-z]/.test(password);
+        const hasDigit = /[0-9]/.test(password);
+        const hasSpecial = /[!@#$%^&*]/.test(password);
+        return password.length >= minLen && hasUpper && hasLower && hasDigit && hasSpecial;
+    }
+
+    // ---- Password strength UI update ----
+    function updatePasswordRequirements(password) {
+        const checks = [
+            { el: pwLength, valid: password.length >= 8, text: 'At least 8 characters' },
+            { el: pwUppercase, valid: /[A-Z]/.test(password), text: 'At least one uppercase letter' },
+            { el: pwLowercase, valid: /[a-z]/.test(password), text: 'At least one lowercase letter' },
+            { el: pwDigit, valid: /[0-9]/.test(password), text: 'At least one number' },
+            { el: pwSpecial, valid: /[!@#$%^&*]/.test(password), text: 'At least one special character (!@#$%^&*)' }
+        ];
+        checks.forEach(c => {
+            c.el.className = c.valid ? 'valid' : 'invalid';
+            c.el.textContent = (c.valid ? '✅' : '❌') + ' ' + c.text;
+        });
+        return checks.every(c => c.valid);
+    }
+
+    // ---- Live validation: Signup ----
+    function validateSignupForm() {
+        const isNameValid = validateName(signupUsername.value);
+        const isEmailValid = validateEmail(signupEmail.value);
+        const isPhoneValid = validatePhone(signupPhone.value);
+        const isPasswordValid = validatePassword(signupPassword.value);
+
+        signupUsernameError.classList.toggle('visible', !isNameValid && signupUsername.value.length > 0);
+        signupEmailError.classList.toggle('visible', !isEmailValid && signupEmail.value.length > 0);
+        signupPhoneError.classList.toggle('visible', !isPhoneValid && signupPhone.value.length > 0);
+        signupPasswordError.classList.toggle('visible', !isPasswordValid && signupPassword.value.length > 0);
+
+        // Enable Send OTP button only if all valid
+        signupSendOtpBtn.disabled = !(isNameValid && isEmailValid && isPhoneValid && isPasswordValid);
+    }
+
+    // ---- Live validation: Inquiry ----
+    function validateInquiryForm() {
+        const isNameValid = validateName(inqName.value);
+        const isEmailValid = validateEmail(inqEmail.value);
+        const isPhoneValid = validatePhone(inqContact.value);
+
+        inqNameError.classList.toggle('visible', !isNameValid && inqName.value.length > 0);
+        inqEmailError.classList.toggle('visible', !isEmailValid && inqEmail.value.length > 0);
+        inqContactError.classList.toggle('visible', !isPhoneValid && inqContact.value.length > 0);
+
+        // Enable Send OTP button only if all valid
+        inqSendOtpBtn.disabled = !(isNameValid && isEmailValid && isPhoneValid);
+    }
+
+    // ---- Attach event listeners for live validation ----
+    [signupUsername, signupEmail, signupPhone, signupPassword].forEach(el => {
+        el.addEventListener('input', validateSignupForm);
+        el.addEventListener('blur', validateSignupForm);
+    });
+    signupPassword.addEventListener('input', function() {
+        updatePasswordRequirements(this.value);
+        validateSignupForm();
+    });
+
+    [inqName, inqEmail, inqContact].forEach(el => {
+        el.addEventListener('input', validateInquiryForm);
+        el.addEventListener('blur', validateInquiryForm);
+    });
+
+    // ---- Override signup form step 1 submit ----
+    document.getElementById('signupFormStep1').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        // Re-validate all fields
+        const isNameValid = validateName(signupUsername.value);
+        const isEmailValid = validateEmail(signupEmail.value);
+        const isPhoneValid = validatePhone(signupPhone.value);
+        const isPasswordValid = validatePassword(signupPassword.value);
+
+        if (!isNameValid) {
+            signupUsernameError.classList.add('visible');
+            signupUsername.focus();
+            return;
+        }
+        if (!isEmailValid) {
+            signupEmailError.classList.add('visible');
+            signupEmail.focus();
+            return;
+        }
+        if (!isPhoneValid) {
+            signupPhoneError.classList.add('visible');
+            signupPhone.focus();
+            return;
+        }
+        if (!isPasswordValid) {
+            signupPasswordError.classList.add('visible');
+            signupPassword.focus();
+            return;
+        }
+        // All valid, proceed with OTP generation
+        const email = signupEmail.value.trim();
+        const errorEl = document.getElementById('signupError');
+        errorEl.style.display = 'none';
+        try {
+            const data = await apiCall('/api/generate-otp', { contact: email, type: 'email' });
+            if (data.success) {
+                goToSignupStep2();
+            } else {
+                errorEl.textContent = data.error || 'Failed to send OTP';
+                errorEl.style.display = 'block';
+            }
+        } catch (err) {
+            errorEl.textContent = 'Network error';
+            errorEl.style.display = 'block';
+        }
+    });
+
+    // ---- Signup step 2 submit (unchanged) ----
+    document.getElementById('signupFormStep2').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = signupUsername.value.trim();
+        const email = signupEmail.value.trim();
+        const phone = signupPhone.value.trim();
+        const password = signupPassword.value;
+        const otp = document.getElementById('signupOtp').value.trim();
+        const errorEl = document.getElementById('signupOtpError');
+        errorEl.style.display = 'none';
+        try {
+            const data = await apiCall('/api/signup', { username, email, phone, password, otp });
+            if (data.success) {
+                alert('✅ Account created! You are now logged in.');
+                location.reload();
+            } else {
+                errorEl.textContent = data.error || 'Signup failed';
+                errorEl.style.display = 'block';
+            }
+        } catch (err) {
+            errorEl.textContent = 'Network error';
+            errorEl.style.display = 'block';
+        }
+    });
+
+    // ---- Inquiry: Send OTP (validated) ----
+    inqSendOtpBtn.addEventListener('click', async function(e) {
+        e.preventDefault();
+        // Validate before sending
+        const isNameValid = validateName(inqName.value);
+        const isEmailValid = validateEmail(inqEmail.value);
+        const isPhoneValid = validatePhone(inqContact.value);
+        if (!isNameValid) {
+            inqNameError.classList.add('visible');
+            return;
+        }
+        if (!isEmailValid) {
+            inqEmailError.classList.add('visible');
+            return;
+        }
+        if (!isPhoneValid) {
+            inqContactError.classList.add('visible');
+            return;
+        }
+        const email = inqEmail.value.trim();
+        const contact = inqContact.value.trim();
+        const statusEl = document.getElementById('otpStatus');
+        if (!email || !contact) {
+            alert('Please fill in both email and contact.');
+            return;
+        }
+        try {
+            const data = await apiCall('/api/generate-otp', { contact: email, type: 'email' });
+            if (data.success) {
+                document.getElementById('otpSection').style.display = 'block';
+                inqSendOtpBtn.disabled = true;
+                statusEl.style.color = 'green';
+                statusEl.textContent = 'OTP sent (check console).';
+                document.getElementById('inqOtp').focus();
+            } else {
+                statusEl.style.color = 'red';
+                statusEl.textContent = data.error || 'Failed to send OTP';
+            }
+        } catch (err) {
+            statusEl.style.color = 'red';
+            statusEl.textContent = 'Network error.';
+        }
+    });
+
+    // ---- Inquiry: Verify OTP (unchanged) ----
+    document.getElementById('verifyOtpBtn').addEventListener('click', async function(e) {
+        e.preventDefault();
+        const otp = document.getElementById('inqOtp').value.trim();
+        const email = inqEmail.value.trim();
+        const statusEl = document.getElementById('otpStatus');
+        if (!otp) {
+            statusEl.style.color = 'red';
+            statusEl.textContent = 'Enter OTP.';
+            return;
+        }
+        try {
+            const data = await apiCall('/api/verify-otp', { contact: email, otp });
+            if (data.success) {
+                otpVerified = true;
+                inqSubmitBtn.disabled = false;
+                statusEl.style.color = 'green';
+                statusEl.textContent = '✅ OTP verified.';
+                document.getElementById('verifyOtpBtn').disabled = true;
+            } else {
+                statusEl.style.color = 'red';
+                statusEl.textContent = data.error || 'Invalid OTP.';
+            }
+        } catch (err) {
+            statusEl.style.color = 'red';
+            statusEl.textContent = 'Network error.';
+        }
+    });
+
+    // ---- Inquiry: Submit (unchanged) ----
+    document.getElementById('inquiryForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        if (!otpVerified) {
+            alert('Please verify OTP first.');
+            return;
+        }
+        const name = inqName.value.trim();
+        const email = inqEmail.value.trim();
+        const contact = inqContact.value.trim();
+        if (!name || !email || !contact) {
+            alert('Fill all fields.');
+            return;
+        }
+        const productId = this.dataset.productId;
+        const productName = this.dataset.productName;
+        const category = this.dataset.category;
+        const payload = {
+            name, email, contact,
+            product_id: productId,
+            product_name: productName,
+            category: category,
+            inquiry_type: 'quote',
+            requirements: lastUserMessage
+        };
+        try {
+            const response = await fetch('/inquiry', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                credentials: 'include'
+            });
+            const data = await response.json();
+            if (data.success) {
+                alert('✅ Inquiry submitted.');
+                closeModal('inquiryModal');
+                document.getElementById('inqName').value = '';
+                document.getElementById('inqEmail').value = '';
+                document.getElementById('inqContact').value = '';
+                document.getElementById('inqOtp').value = '';
+            } else {
+                alert('❌ Error: ' + data.error);
+            }
+        } catch (error) {
+            alert('❌ Network error.');
+        }
+    });
+
+    // ---- Cookie Helpers ----
+    function setCookie(name, value, days = 7) {
+        const expires = new Date(Date.now() + days * 864e5).toUTCString();
+        document.cookie = `${name}=${encodeURIComponent(JSON.stringify(value))}; expires=${expires}; path=/; SameSite=Lax`;
+    }
+    function getCookie(name) {
+        const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+        if (match) {
+            try { return JSON.parse(decodeURIComponent(match[2])); } catch(e) { return null; }
+        }
+        return null;
+    }
+    function deleteCookie(name) {
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax`;
+    }
+
+    // ---- Auth UI ----
+    function updateAuthUI() {
+        const authDropdown = document.getElementById('authDropdown');
+        const greetingWrapper = document.getElementById('userGreetingWrapper');
+        const usernameDisplay = document.getElementById('usernameDisplay');
+
+        if (currentUser) {
+            authDropdown.style.display = 'none';
+            greetingWrapper.style.display = 'inline-block';
+            usernameDisplay.textContent = currentUser.username;
+            document.getElementById('userDropdown').classList.remove('open');
+        } else {
+            authDropdown.style.display = 'inline-block';
+            greetingWrapper.style.display = 'none';
+        }
+    }
+
+    function logout() {
+        currentUser = null;
+        deleteCookie('user');
+        updateAuthUI();
+        document.getElementById('userDropdown').classList.remove('open');
+        alert('Logged out.');
+        location.reload();
+    }
+
+    function toggleUserDropdown() {
+        document.getElementById('userDropdown').classList.toggle('open');
+    }
+
+    document.addEventListener('click', function(e) {
+        const wrapper = document.getElementById('userGreetingWrapper');
+        if (wrapper && !wrapper.contains(e.target)) {
+            document.getElementById('userDropdown').classList.remove('open');
+        }
+        const authDropdown = document.getElementById('authDropdown');
+        if (authDropdown && !authDropdown.contains(e.target)) {
+            authDropdown.classList.remove('active');
+        }
+    });
+
+    // ---- Chat widget toggles ----
+    let isMaximized = false;
+
+    function openChat() {
+        if (isClosing) return;
+        panel.classList.remove('closing');
+        panel.style.display = 'flex';
+        void panel.offsetWidth;
+        panel.classList.add('open');
+        toggleBtn.style.display = 'none';
+        document.getElementById('authDropdown').classList.remove('active');
+        document.getElementById('userDropdown').classList.remove('open');
+    }
+
+    function closeChat() {
+        if (isClosing) return;
+        isClosing = true;
+        panel.classList.add('closing');
+        setTimeout(() => {
+            panel.classList.remove('open', 'closing');
+            panel.style.display = 'none';
+            toggleBtn.style.display = 'flex';
+            if (isMaximized) toggleMaximize();
+            isClosing = false;
+        }, 300);
+    }
+
+    function endChat() {
+        chatMessages.innerHTML = '';
+        currentStep = 'category';
+        currentCategory = null;
+        currentProductId = null;
+        currentProductName = null;
+        lastUserMessage = '';
+        clearSuggestions();
+        enableInput(false);
+        userInput.placeholder = 'Select a product first';
+        closeChat();
+        setTimeout(() => { renderCategories(); }, 350);
+    }
+
+    function toggleMaximize() {
+        isMaximized = !isMaximized;
+        panel.classList.toggle('maximized');
+        maxBtn.textContent = isMaximized ? '🗗' : '🗖';
+    }
+
+    toggleBtn.addEventListener('click', openChat);
+    closeBtn.addEventListener('click', closeChat);
+    maxBtn.addEventListener('click', toggleMaximize);
+
+    endChatBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        endChatModal.classList.add('active');
+    });
+
+    endChatNo.addEventListener('click', function() {
+        endChatModal.classList.remove('active');
+    });
+
+    endChatYes.addEventListener('click', function() {
+        endChatModal.classList.remove('active');
+        endChat();
+    });
+
+    endChatModal.addEventListener('click', function(e) {
+        if (e.target === endChatModal) {
+            endChatModal.classList.remove('active');
+        }
+    });
+
+    const accountBtn = document.getElementById('accountBtn');
+    const authDropdown = document.getElementById('authDropdown');
+    accountBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        authDropdown.classList.toggle('active');
+        document.getElementById('userDropdown').classList.remove('open');
+    });
+
+    // ---- Helpers ----
+    function getTimestamp() {
+        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    function escapeHtml(unsafe) {
+        if (!unsafe) return '';
+        return unsafe.replace(/[&<>"]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            if (m === '"') return '&quot;';
+            return m;
+        });
+    }
+    function addMessage(text, sender, isHTML = false) {
+        const div = document.createElement('div');
+        div.className = `message ${sender}`;
+        const time = getTimestamp();
+        let content = text;
+        if (!isHTML) {
+            content = escapeHtml(text);
+            content = content.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+            content = content.replace(/\n/g, '<br>');
+        }
+        div.innerHTML = `<div class="bubble">${content}</div><div class="timestamp">${time}</div>`;
+        chatMessages.appendChild(div);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        return div;
+    }
+    function showTyping() {
+        const id = 'typing-' + Date.now();
+        const div = document.createElement('div');
+        div.className = 'message bot';
+        div.id = id;
+        div.innerHTML = `<div class="bubble"><span class="typing-dots"><span></span><span></span><span></span></span></div>`;
+        chatMessages.appendChild(div);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        return id;
+    }
+    function removeTyping(id) {
+        const el = document.getElementById(id);
+        if (el) el.remove();
+    }
+    function enableInput(enable) {
+        userInput.disabled = !enable;
+        sendBtn.disabled = !enable;
+        if (!enable) {
+            userInput.placeholder = 'Select a product first';
+        } else {
+            userInput.placeholder = 'Ask anything...';
+        }
+    }
+    function clearSuggestions() { suggestionArea.innerHTML = ''; }
+
+    // ---- Render Categories, Products, Chips ----
+    function renderCategories() {
+        const msg = "👋 Hi! I'm MediBot, your medical equipment assistant.<br><br><b>Let's get started:</b><br>Please select a <b>category</b> from the options below:";
+        const bubble = addMessage(msg, 'bot', true);
+        const bubbleDiv = bubble.querySelector('.bubble');
+        const buttonsContainer = document.createElement('div');
+        buttonsContainer.style.marginTop = '10px';
+        buttonsContainer.style.display = 'flex';
+        buttonsContainer.style.flexWrap = 'wrap';
+        buttonsContainer.style.gap = '6px';
+        categories.forEach(cat => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn primary';
+            btn.textContent = cat.replace(/_/g, ' ').toUpperCase();
+            btn.dataset.value = cat;
+            btn.dataset.type = 'category';
+            btn.style.fontSize = '0.8rem';
+            buttonsContainer.appendChild(btn);
+        });
+        bubbleDiv.appendChild(buttonsContainer);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function renderProducts(category) {
+        const products = productsByCategory[category] || [];
+        if (products.length === 0) {
+            addMessage(`No products found in category "${category}".`, 'bot');
+            return;
+        }
+        const msg = `Great! Now please select a <b>product</b> from the list below:`;
+        const bubble = addMessage(msg, 'bot', true);
+        const bubbleDiv = bubble.querySelector('.bubble');
+        const buttonsContainer = document.createElement('div');
+        buttonsContainer.style.marginTop = '10px';
+        buttonsContainer.style.display = 'flex';
+        buttonsContainer.style.flexWrap = 'wrap';
+        buttonsContainer.style.gap = '6px';
+        products.forEach(p => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.textContent = p.name;
+            btn.dataset.value = p.equipment_id;
+            btn.dataset.type = 'product';
+            btn.style.fontSize = '0.8rem';
+            buttonsContainer.appendChild(btn);
+        });
+        bubbleDiv.appendChild(buttonsContainer);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function renderQuestionChips() {
+        suggestionArea.innerHTML = '';
+        const chips = [
+            { label: '📋 About this product', value: 'Tell me about this product' },
+            { label: '⚙️ Features', value: 'What are the features?' },
+            { label: '💉 Uses', value: 'What are the uses?' },
+            { label: '📊 Tech Specs', value: 'What are the technical specifications?' },
+            { label: '⚖️ Pros & Cons', value: 'What are the advantages and disadvantages?' },
+            { label: '💰 Request a Quote', value: 'Quotation' }
+        ];
+        chips.forEach(chip => {
+            const span = document.createElement('span');
+            span.className = 'suggestion-chip';
+            span.textContent = chip.label;
+            span.dataset.value = chip.value;
+            span.addEventListener('click', () => {
+                userInput.value = chip.value;
+                sendMessage();
+            });
+            suggestionArea.appendChild(span);
+        });
+    }
+
+    // ---- Chat Button Clicks ----
+    chatMessages.addEventListener('click', function(e) {
+        const target = e.target.closest('button.option-btn');
+        if (!target) return;
+        const value = target.dataset.value;
+        const type = target.dataset.type;
+
+        if (type === 'category') {
+            currentCategory = value;
+            currentStep = 'product';
+            addMessage(`✅ Selected: <b>${value.replace(/_/g, ' ').toUpperCase()}</b>`, 'user', true);
+            renderProducts(value);
+            enableInput(false);
+            userInput.placeholder = 'Select a product';
+            clearSuggestions();
+        } else if (type === 'product') {
+            const productId = parseInt(value);
+            const products = productsByCategory[currentCategory] || [];
+            const product = products.find(p => p.equipment_id === productId);
+            if (product) {
+                currentProductId = productId;
+                currentProductName = product.name;
+                currentStep = 'chat';
+                addMessage(`✅ Selected: <b>${product.name}</b>`, 'user', true);
+                addMessage(`You're now chatting about <b>${product.name}</b>. Ask me anything!`, 'bot', true);
+                renderQuestionChips();
+                enableInput(true);
+                userInput.placeholder = 'Ask anything...';
+                userInput.focus();
+            }
+        }
+    });
+
+    // ---- Send Message ----
+    async function sendMessage() {
+        const message = userInput.value.trim();
+        if (!message) return;
+        if (currentStep !== 'chat' || !currentProductId) {
+            alert('Please select a product first.');
+            return;
+        }
+        userInput.disabled = true;
+        sendBtn.disabled = true;
+        lastUserMessage = message;
+
+        addMessage(message, 'user');
+        userInput.value = '';
+
+        const typingId = showTyping();
+        try {
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: message,
+                    product_id: currentProductId,
+                    category: currentCategory
+                }),
+                credentials: 'include'
+            });
+            const data = await response.json();
+            removeTyping(typingId);
+            if (data.error) {
+                addMessage('⚠️ ' + data.error, 'bot');
+            } else {
+                addMessage(data.response, 'bot', true);
+                if (data.show_inquiry_modal) {
+                    showInquiryModal(data.product_id, data.product_name, data.category);
+                }
+            }
+        } catch (error) {
+            removeTyping(typingId);
+            addMessage('⚠️ Network error. Please try again.', 'bot');
+            console.error(error);
+        } finally {
+            userInput.disabled = false;
+            sendBtn.disabled = false;
+            userInput.focus();
+        }
+    }
+
+    userInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && !this.disabled) sendMessage();
+    });
+    sendBtn.addEventListener('click', sendMessage);
+
+    // ---- Modal Helpers ----
+    function openModal(id) { document.getElementById(id).classList.add('active'); }
+    function closeModal(id) {
+        document.getElementById(id).classList.remove('active');
+        if (id === 'signupModal') goToSignupStep1();
+        if (id === 'inquiryModal') resetInquiryModal();
+    }
+
+    function goToSignupStep1() {
+        document.getElementById('signupStep1').style.display = 'block';
+        document.getElementById('signupStep2').style.display = 'none';
+    }
+    function goToSignupStep2() {
+        document.getElementById('signupStep1').style.display = 'none';
+        document.getElementById('signupStep2').style.display = 'block';
+    }
+    function resetInquiryModal() {
+        document.getElementById('otpSection').style.display = 'none';
+        document.getElementById('inqOtp').value = '';
+        document.getElementById('otpStatus').textContent = '';
+        inqSendOtpBtn.disabled = false;
+        inqSubmitBtn.disabled = true;
+        document.getElementById('verifyOtpBtn').disabled = false;
+        otpVerified = false;
+    }
+
+    // ---- API Calls ----
+    async function apiCall(url, data) {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+            credentials: 'include'
+        });
+        return res.json();
+    }
+
+    // ---- Login ----
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const contact = document.getElementById('loginContact').value.trim();
+        const password = document.getElementById('loginPassword').value;
+        const errorEl = document.getElementById('loginError');
+        errorEl.style.display = 'none';
+        try {
+            const data = await apiCall('/api/login', { contact, password });
+            if (data.success) {
+                currentUser = data.user;
+                setCookie('user', currentUser);
+                updateAuthUI();
+                closeModal('loginModal');
+                document.getElementById('loginContact').value = '';
+                document.getElementById('loginPassword').value = '';
+                authDropdown.classList.remove('active');
+                location.reload();
+            } else {
+                errorEl.textContent = data.error || 'Login failed';
+                errorEl.style.display = 'block';
+            }
+        } catch (err) {
+            errorEl.textContent = 'Network error';
+            errorEl.style.display = 'block';
+        }
+    });
+
+    // ---- Inquiry (Guest flow) ----
+    function showInquiryModal(productId, productName, category) {
+        if (currentUser) {
+            const payload = {
+                name: currentUser.username,
+                email: currentUser.email,
+                contact: currentUser.phone,
+                product_id: productId,
+                product_name: productName,
+                category: category,
+                inquiry_type: 'quote',
+                requirements: lastUserMessage
+            };
+            fetch('/inquiry', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                credentials: 'include'
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    addMessage('✅ Your inquiry has been submitted. Our team will reach out to you shortly.', 'bot');
+                } else {
+                    addMessage('⚠️ ' + (data.error || 'Submission failed.'), 'bot');
+                }
+            })
+            .catch(() => addMessage('⚠️ Network error submitting inquiry.', 'bot'));
+        } else {
+            pendingInquiryData = { productId, productName, category };
+            resetInquiryModal();
+            const form = document.getElementById('inquiryForm');
+            form.dataset.productId = productId;
+            form.dataset.productName = productName;
+            form.dataset.category = category;
+            openModal('inquiryModal');
+        }
+    }
+
+    // ---- Chat History ----
+    async function showChatHistory() {
+        const modal = document.getElementById('chatHistoryModal');
+        const content = document.getElementById('chatHistoryContent');
+        content.innerHTML = 'Loading...';
+        openModal('chatHistoryModal');
+        document.getElementById('userDropdown').classList.remove('open');
+        try {
+            const res = await fetch('/api/chat-history', { credentials: 'include' });
+            const data = await res.json();
+            if (data.success && data.history && data.history.length) {
+                let html = '';
+                data.history.forEach(item => {
+                    const userMsg = escapeHtml(item.user_message || '');
+                    const product = escapeHtml(item.product_name || '');
+                    const botMsg = item.bot_response || '';
+                    html += `<div style="border-bottom:1px solid #e9edf2; padding:10px 0;">
+                        <small style="color:#94a3b8;">${new Date(item.timestamp).toLocaleString()}</small>
+                        ${product ? `<br><b>Product:</b> ${product}` : ''}
+                        <br><span style="color:#2563eb; font-weight:600;">You:</span> ${userMsg}
+                        <br><span style="color:#0b2a4a; font-weight:600;">Bot:</span> <span>${botMsg}</span>
+                    </div>`;
+                });
+                content.innerHTML = html;
+            } else {
+                content.innerHTML = 'No chat history found.';
+            }
+        } catch (e) {
+            content.innerHTML = 'Error loading history.';
+            console.error(e);
+        }
+    }
+
+    // ---- My Requests ----
+    async function showMyRequests() {
+        const modal = document.getElementById('myRequestsModal');
+        const content = document.getElementById('myRequestsContent');
+        content.innerHTML = 'Loading...';
+        openModal('myRequestsModal');
+        document.getElementById('userDropdown').classList.remove('open');
+        try {
+            const res = await fetch('/api/user-requests', { credentials: 'include' });
+            const data = await res.json();
+            if (data.success && data.requests && data.requests.length) {
+                let html = '';
+                data.requests.forEach(req => {
+                    const statusColor = req.status === 'pending' ? '#f59e0b' : req.status === 'approved' ? '#10b981' : '#ef4444';
+                    html += `<div style="border-bottom:1px solid #e9edf2; padding:8px 0;">
+                        <b>${escapeHtml(req.product_name)}</b> <small style="color:#94a3b8;">${new Date(req.created_at).toLocaleString()}</small><br>
+                        Type: ${escapeHtml(req.inquiry_type)} | Status: <span style="font-weight:600; color:${statusColor};">${escapeHtml(req.status)}</span><br>
+                        ${req.requirements ? 'Requirements: '+escapeHtml(req.requirements) : ''}
+                    </div>`;
+                });
+                content.innerHTML = html;
+            } else {
+                content.innerHTML = 'No requests found.';
+            }
+        } catch (e) {
+            content.innerHTML = 'Error loading requests.';
+            console.error(e);
+        }
+    }
+
+    // ---- Cookie Consent ----
+    function setCookieConsent(name, value, days) {
+        var expires = "";
+        if (days) {
+            var date = new Date();
+            date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+            expires = "; expires=" + date.toUTCString();
+        }
+        document.cookie = name + "=" + (value || "") + expires + "; path=/; SameSite=Lax";
+    }
+    function getCookieVal(name) {
+        var nameEQ = name + "=";
+        var ca = document.cookie.split(';');
+        for (var i = 0; i < ca.length; i++) {
+            var c = ca[i];
+            while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+            if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+        }
+        return null;
+    }
+    function hasConsent() { return getCookieVal('cookie_consent') !== null; }
+    function showCookieBanner() { document.getElementById('cookieBanner').style.display = 'block'; }
+    function hideCookieBanner() { document.getElementById('cookieBanner').style.display = 'none'; }
+    function initCookieBanner() {
+        if (hasConsent()) { hideCookieBanner(); return; }
+        if (getCookieVal('cookie_consent_dismissed')) { hideCookieBanner(); return; }
+        showCookieBanner();
+    }
+    function acceptAll() {
+        var prefs = { essential: true, performance: true, analytics: true, advertising: true };
+        setCookieConsent('cookie_consent', JSON.stringify(prefs), 365);
+        hideCookieBanner();
+        fetch('/cookie-consent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'accepted', preferences: prefs }) })
+            .catch(err => console.warn('Failed to log consent:', err));
+    }
+    function rejectAll() {
+        var prefs = { essential: true, performance: false, analytics: false, advertising: false };
+        setCookieConsent('cookie_consent', JSON.stringify(prefs), 365);
+        hideCookieBanner();
+        fetch('/cookie-consent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'rejected', preferences: prefs }) })
+            .catch(err => console.warn('Failed to log consent:', err));
+    }
+    function dismissBanner() {
+        setCookieConsent('cookie_consent_dismissed', 'true', 1);
+        hideCookieBanner();
+    }
+    document.getElementById('cookieAcceptBtn').addEventListener('click', acceptAll);
+    document.getElementById('cookieRejectBtn').addEventListener('click', rejectAll);
+    document.getElementById('cookieCloseBtn').addEventListener('click', dismissBanner);
+
+    // ---- Preferences ----
+    function openPreferences() {
+        const consent = getCookie('cookie_consent') || { essential: true, performance: false, analytics: false, advertising: false };
+        document.getElementById('prefPerformance').checked = consent.performance || false;
+        document.getElementById('prefAnalytics').checked = consent.analytics || false;
+        document.getElementById('prefAdvertising').checked = consent.advertising || false;
+        openModal('preferencesModal');
+    }
+    function closePreferences() { closeModal('preferencesModal'); }
+    function savePreferences() {
+        const prefs = {
+            essential: true,
+            performance: document.getElementById('prefPerformance').checked,
+            analytics: document.getElementById('prefAnalytics').checked,
+            advertising: document.getElementById('prefAdvertising').checked
+        };
+        setCookieConsent('cookie_consent', JSON.stringify(prefs), 365);
+        closePreferences();
+        hideCookieBanner();
+        fetch('/cookie-consent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'custom', preferences: prefs }) })
+            .catch(err => console.warn('Failed to log consent:', err));
+    }
+    document.getElementById('cookiePrefBtn').addEventListener('click', openPreferences);
+    document.getElementById('prefCloseBtn').addEventListener('click', closePreferences);
+    document.getElementById('prefSaveBtn').addEventListener('click', savePreferences);
+    document.getElementById('preferencesModal').addEventListener('click', function(e) {
+        if (e.target === this) closePreferences();
+    });
+
+    // ---- Password Toggle ----
+    document.addEventListener('click', function(e) {
+        const toggle = e.target.closest('.toggle-password');
+        if (!toggle) return;
+        const targetId = toggle.dataset.target;
+        const input = document.getElementById(targetId);
+        if (!input) return;
+        if (input.type === 'password') {
+            input.type = 'text';
+            toggle.textContent = '🙈';
+        } else {
+            input.type = 'password';
+            toggle.textContent = '👁️';
+        }
+    });
+
+    // ---- Init ----
+    const savedUser = getCookie('user');
+    if (savedUser) {
+        currentUser = savedUser;
+    }
+    updateAuthUI();
+    renderCategories();
+    enableInput(false);
+    userInput.placeholder = 'Select a product first';
+    initCookieBanner();
+    console.log('✅ MediBot widget loaded.');
+</script>
+</body>
+</html>
