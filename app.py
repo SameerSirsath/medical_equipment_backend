@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, render_template, session, abort, send_from_directory
+from flask_cors import CORS
 from db_helper import (
     get_all_categories,
     get_products_by_category,
@@ -42,6 +43,11 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
 app.config['SESSION_COOKIE_NAME'] = 'session'
+
+# CORS for Vercel frontend
+CORS(app, 
+     origins=[os.getenv("FRONTEND_URL", "http://localhost:5175"), "https://*.vercel.app"],
+     supports_credentials=True)
 
 # ---------- Load About KAIZY info ----------
 ABOUT_FILE = os.path.join(os.path.dirname(__file__), 'about_kaizy.txt')
