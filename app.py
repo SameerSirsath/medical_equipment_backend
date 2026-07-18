@@ -26,35 +26,45 @@ from db_helper import (
     find_user_by_username,
     find_user_by_email,
     find_user_by_phone,
-    DB_CONFIG
+    get_db_connection,          # NEW for feedback route
+    release_db_connection,      # NEW for feedback route
 )
 from email_utils import send_otp_email
 from agent import ask_agent
 import re
 import os
 import uuid
-import pymysql          # added for feedback route
-import google.generativeai as genai
-
+import pymysql
 from geo import get_client_ip, get_geolocation, is_private_ip
 from datetime import timedelta
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
+
+# ── Production Configuration ──────────────────────────────────
+app.secret_key = os.getenv("SECRET_KEY")
+if not app.secret_key:
+    raise ValueError("SECRET_KEY environment variable is not set")
+
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
 app.config['SESSION_COOKIE_NAME'] = 'session'
-app.config['SESSION_COOKIE_SECURE'] = True  # Required for cross-origin cookies
-app.config['SESSION_COOKIE_SAMESITE'] = 'None'  # Required for cross-origin cookies
+app.config['SESSION_COOKIE_SECURE'] = True          # HTTPS only
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'       # Good for cross-origin with same-site
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
 
-# CORS for Vercel frontend - allow all vercel.app subdomains
+# ── CORS Configuration ────────────────────────────────────────
 frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5175")
+# Allow your Vercel frontend and local dev
 CORS(app,
-     origins=[frontend_url, r"https://.*\.vercel\.app"],
+     origins=[frontend_url, r"https://.*\.vercel\.app", r"http://localhost:*"],
      supports_credentials=True,
      allow_headers=["Content-Type", "Authorization"],
      methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
-# ---------- Load About KAIZY info ----------
+# ── Load About KAIZY info ─────────────────────────────────────
 ABOUT_FILE = os.path.join(os.path.dirname(__file__), 'about_kaizy.txt')
 try:
     with open(ABOUT_FILE, 'r', encoding='utf-8') as f:
@@ -67,19 +77,19 @@ except Exception as e:
     print(f"❌ Error reading file: {e}")
     ABOUT_KAIZY = "KAIZY is a medical equipment assistant. For more information, please contact support."
 
-# ---------- Contact Info from Environment ----------
+# ── Contact Info from Environment ─────────────────────────────
 CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "sales@kaizenmeds.com")
 CONTACT_PHONE = os.getenv("CONTACT_PHONE", "+91 966 550 2190")
 CONTACT_WEBSITE = os.getenv("CONTACT_WEBSITE", "kaizy.com")
 
-# ---------- Service-related keywords ----------
+# ── Service keywords ──────────────────────────────────────────
 SERVICE_KEYWORDS = [
     'repair', 'maintenance', 'servicing', 'fix', 'broken', 'malfunction',
     'troubleshoot', 'troubleshooting', 'installation', 'setup',
     'damaged', 'faulty', 'not working', 'doesn\'t work'
 ]
 
-# ---------- Helper: Select relevant product fields ----------
+# ── Helper: Select relevant product fields ────────────────────
 def get_relevant_fields(user_question: str, product_data: dict) -> dict:
     question_lower = user_question.lower()
     relevant = {}
@@ -114,7 +124,7 @@ def get_relevant_fields(user_question: str, product_data: dict) -> dict:
                 relevant[field] = product_data.get(field)
     return relevant
 
-# ---------- Prompt Builder ----------
+# ── Prompt Builder ────────────────────────────────────────────
 def build_chat_prompt(user_question, product_context, product_name, category_name, history):
     relevant_data = get_relevant_fields(user_question, product_context)
     context_lines = []
@@ -162,7 +172,41 @@ def clean_response(text: str) -> str:
     text = re.sub(r'\n{3,}', '\n\n', text)
     return text.strip()
 
-# ---------- Routes ----------
+# ── Health / Status Endpoints ─────────────────────────────────
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({"status": "healthy", "version": "1.0.0"})
+
+@app.route('/test-db', methods=['GET'])
+def test_db():
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            result = cursor.fetchone()
+        release_db_connection(conn)
+        return jsonify({"status": "connected", "result": result[0]})
+    except Exception as e:
+        app.logger.error(f"DB test failed: {e}")
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+@app.route('/status', methods=['GET'])
+def status():
+    db_status = "unknown"
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT 1")
+        release_db_connection(conn)
+        db_status = "connected"
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+    return jsonify({
+        "database": db_status,
+        "llm_provider": os.getenv("PRIMARY_PROVIDER", "not set")
+    })
+
+# ── Routes ────────────────────────────────────────────────────
 @app.route('/accept_terms', methods=['POST'])
 def accept_terms():
     session['terms_accepted'] = True
@@ -179,10 +223,6 @@ def cookies_page():
 @app.route('/privacy')
 def privacy_page():
     return render_template('privacy.html')
-
-# ---- REMOVED the old index route to avoid conflict with React serving ----
-# @app.route('/')
-# def index(): ...  (commented out)
 
 # ==================== API ROUTES ====================
 
@@ -221,7 +261,6 @@ def check_user():
         response['email_exists'] = find_user_by_email(email) is not None
     if phone:
         response['phone_exists'] = find_user_by_phone(phone) is not None
-    
     return jsonify(response)
 
 # ==================== FEEDBACK ROUTE ====================
@@ -234,12 +273,10 @@ def submit_feedback():
     rating = data.get('rating')
     comment = data.get('comment', '').strip()
     feedback_type = data.get('type', 'general')
-    product_id = data.get('product_id')  # may be None
+    product_id = data.get('product_id')
 
-    # Validation
     if not isinstance(rating, int) or rating < 1 or rating > 5:
-        return jsonify({'error': 'Rating must be an integer between 1 and 5'}), 400
-
+        return jsonify({'error': 'Rating must be between 1 and 5'}), 400
     if feedback_type not in ('general', 'product', 'service', 'chat_experience'):
         return jsonify({'error': 'Invalid feedback type'}), 400
 
@@ -247,12 +284,12 @@ def submit_feedback():
     if not session_id:
         return jsonify({'error': 'No active session'}), 400
 
-    # Get user if logged in
     user = get_user_from_session(session_id)
     user_id = user['id'] if user else None
 
+    conn = None
     try:
-        conn = pymysql.connect(**DB_CONFIG)
+        conn = get_db_connection()
         with conn.cursor() as cursor:
             cursor.execute("""
                 INSERT INTO feedback (session_id, user_id, product_id, rating, comment, feedback_type)
@@ -264,7 +301,8 @@ def submit_feedback():
         app.logger.error(f"Feedback submission error: {e}")
         return jsonify({'error': 'Failed to save feedback'}), 500
     finally:
-        conn.close()
+        if conn:
+            release_db_connection(conn)
 
 # ==================== CHAT ROUTE ====================
 @app.route('/chat', methods=['POST'])
@@ -316,7 +354,7 @@ def chat():
             'category': category
         })
 
-    # Normal LLM flow – use user_id for history (FIXED)
+    # Normal LLM flow
     history = get_chat_history(user_id, limit=10) if user_id else []
     enhanced_prompt = build_chat_prompt(
         user_message,
@@ -335,6 +373,7 @@ def chat():
         raw_answer = ask_agent(enhanced_prompt)
         cleaned_answer = clean_response(raw_answer)
     except Exception as e:
+        app.logger.error(f"Agent error: {e}")
         return jsonify({'error': f'Agent error: {str(e)}'}), 500
 
     log_chat_message(
@@ -353,8 +392,7 @@ def chat():
         'category': category
     })
 
-# ========================= AUTHENTICATION ROUTES =========================
-
+# ========================= AUTHENTICATION =========================
 @app.route('/api/signup', methods=['POST'])
 def signup():
     data = request.get_json()
@@ -383,6 +421,7 @@ def signup():
         mark_user_verified(user_id)
         return jsonify({'success': True, 'message': 'User registered successfully'})
     except Exception as e:
+        app.logger.error(f"Signup error: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/login', methods=['POST'])
@@ -415,7 +454,7 @@ def login():
         }
     })
 
-# ==================== OTP GENERATION (with email sending) ====================
+# ==================== OTP ====================
 @app.route('/api/generate-otp', methods=['POST'])
 def generate_otp_route():
     data = request.get_json()
@@ -434,11 +473,9 @@ def generate_otp_route():
     if contact_type == 'phone' and not contact.isdigit():
         return jsonify({'error': 'Invalid phone number'}), 400
 
-    # Generate OTP and store it
     otp = generate_otp(session_id, contact_type, contact)
     print(f"🔐 OTP for {contact}: {otp}")
 
-    # ── Send email if type is email ──────────────────────────────────
     if contact_type == 'email':
         try:
             send_otp_email(contact, otp)
@@ -467,7 +504,7 @@ def verify_otp_route():
     else:
         return jsonify({'error': 'Invalid or expired OTP'}), 400
 
-# ========================= INQUIRY ROUTE =========================
+# ========================= INQUIRY =========================
 @app.route('/inquiry', methods=['POST'])
 def inquiry():
     data = request.get_json()
@@ -509,16 +546,15 @@ def inquiry():
         inquiry_id = save_inquiry(
             name, email, contact, product_id, product_name,
             category, inquiry_type, requirements, user_id
-            
         )
         return jsonify({'success': True, 'inquiry_id': inquiry_id})
     except Exception as e:
+        app.logger.error(f"Inquiry error: {e}")
         return jsonify({'error': str(e)}), 500
 
-# ========================= OTP LOGIN ROUTES =========================
+# ========================= OTP LOGIN =========================
 @app.route('/api/send-login-otp', methods=['POST'])
 def send_login_otp():
-    """Generate and send OTP to the user's email for login."""
     data = request.get_json()
     contact = data.get('contact', '').strip()
     if not contact:
@@ -547,7 +583,6 @@ def send_login_otp():
 
 @app.route('/api/verify-login-otp', methods=['POST'])
 def verify_login_otp():
-    """Verify OTP and log the user in."""
     data = request.get_json()
     contact = data.get('contact', '').strip()
     otp_code = data.get('otp', '').strip()
@@ -605,12 +640,15 @@ def cookie_consent():
         save_cookie_consent(session_id, status, preferences)
         return jsonify({'success': True})
     except Exception as e:
-        app.logger.error(f"Failed to save cookie consent: {e}")
+        app.logger.error(f"Cookie consent error: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.before_request
 def track_session():
     if request.endpoint and request.endpoint.startswith('static'):
+        return
+    # Skip for health/status to avoid DB dependency on health checks
+    if request.path in ('/health', '/test-db', '/status'):
         return
 
     if 'session_id' not in session:
@@ -626,7 +664,11 @@ def track_session():
     else:
         city = country = lat = lon = None
 
-    upsert_session(session_id, ip, city, country, lat, lon, user_agent)
+    try:
+        upsert_session(session_id, ip, city, country, lat, lon, user_agent)
+    except Exception as e:
+        app.logger.error(f"Session tracking failed: {e}")
+        # Do not fail the request; just log.
 
 @app.route('/admin/cleanup', methods=['POST'])
 def cleanup_old_data():
@@ -656,11 +698,9 @@ def user_requests():
     session_id = session.get('session_id')
     if not session_id:
         return jsonify({'error': 'No active session'}), 400
-
     user = get_user_from_session(session_id)
     if not user:
         return jsonify({'error': 'User not logged in'}), 401
-
     inquiries = get_user_inquiries(user['id'], limit=50)
     return jsonify({'success': True, 'requests': inquiries})
 
@@ -676,5 +716,19 @@ def serve_react_app(path):
     else:
         return send_from_directory(react_build_dir, 'index.html')
 
+# ========================= ERROR HANDLERS =========================
+@app.errorhandler(404)
+def not_found(e):
+    return jsonify({"error": "Resource not found"}), 404
+
+@app.errorhandler(500)
+def internal_error(e):
+    app.logger.error(f"Internal server error: {e}")
+    return jsonify({"error": "Internal server error"}), 500
+
+# ========================= RUN =========================
 if __name__ == "__main__":
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Production: use gunicorn; never run with debug=True in production.
+    # Use environment variable to control debug mode.
+    debug_mode = os.getenv("FLASK_DEBUG", "false").lower() == "true"
+    app.run(debug=debug_mode, host='0.0.0.0', port=5000)
