@@ -1,0 +1,62 @@
+services:
+  - type: web
+    name: medical-equipment-backend
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: chmod +x build.sh && ./build.sh
+    startCommand: gunicorn app:app --config gunicorn.conf.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.12
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DB_HOST
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_PORT
+        value: "3306"
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: SMTP_FROM_NAME
+        value: "KAIZY"
+      - key: PRIMARY_PROVIDER
+        value: "groq"
+      - key: GROQ_API_KEYS
+        sync: false
+      - key: GROQ_MODELS
+        value: "llama-3.1-8b-instant,mixtral-8x7b-32768"
+      - key: MISTRAL_API_KEYS
+        sync: false
+      - key: MISTRAL_MODELS
+        value: "mistral-small-latest,mistral-medium-latest"
+      - key: OPENROUTER_API_KEYS
+        sync: false
+      - key: OPENROUTER_MODELS
+        value: "mistralai/mistral-7b-instruct:free,mistralai/mistral-7b-instruct,google/gemma-2-9b-it:free"
+      - key: ADMIN_KEY
+        sync: false
+      - key: CONTACT_EMAIL
+        value: "sales@kaizenmeds.com"
+      - key: CONTACT_PHONE
+        value: "+91 966 550 2190"
+      - key: CONTACT_WEBSITE
+        value: "kaizy.com"
+    autoDeploy: true

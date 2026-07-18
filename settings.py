@@ -1,8 +1,11 @@
 # settings.py
+import os
+
 DB_CONFIG = {
-    'user': 'root',           # Your MySQL username
-    'password': 'Sam25/03',           # Your MySQL password (leave empty if none)
-    'host': 'localhost',      # or '127.0.0.1'
-    'database': 'medical_equipment',  # Your database name
-    'charset': 'utf8mb4'      # Good practice for Unicode
+    'user': os.getenv('DB_USER', 'root'),
+    'password': os.getenv('DB_PASSWORD', ''),
+    'host': os.getenv('DB_HOST', 'localhost'),
+    'database': os.getenv('DB_NAME', 'medical_equipment'),
+    'port': int(os.getenv('DB_PORT', 3306)),
+    'charset': 'utf8mb4'
 }

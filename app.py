@@ -659,7 +659,7 @@ def user_requests():
 def serve_react_app(path):
     if path.startswith('api/') or path.startswith('static/') or path in ['cookie-consent', 'accept_terms', 'chat', 'inquiry', 'admin']:
         return abort(404)
-    react_build_dir = os.path.join(os.path.dirname(__file__), 'KAIZY-react', 'dist')
+    react_build_dir = os.path.join(os.path.dirname(__file__), 'medibot-react', 'dist')
     if path != "" and os.path.exists(os.path.join(react_build_dir, path)):
         return send_from_directory(react_build_dir, path)
     else:

@@ -2,6 +2,9 @@ import requests
 import functools
 import logging
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 def get_client_ip(request):
     """Extract real client IP from Flask request (always returns a string)."""
     forwarded = request.headers.get('X-Forwarded-For')
@@ -18,8 +21,16 @@ def is_private_ip(ip):
     # IPv4 private ranges
     if ip.startswith('127.') or ip.startswith('192.168.') or ip.startswith('10.'):
         return True
-    if ip.startswith('172.16.') or ip.startswith('172.17.') or ip.startswith('172.18.') or ip.startswith('172.19.') or ip.startswith('172.20.') or ip.startswith('172.21.') or ip.startswith('172.22.') or ip.startswith('172.23.') or ip.startswith('172.24.') or ip.startswith('172.25.') or ip.startswith('172.26.') or ip.startswith('172.27.') or ip.startswith('172.28.') or ip.startswith('172.29.') or ip.startswith('172.30.') or ip.startswith('172.31.'):
-        return True
+    if ip.startswith('172.'):
+        # 172.16.0.0/12
+        parts = ip.split('.')
+        if len(parts) >= 2:
+            try:
+                second = int(parts[1])
+                if 16 <= second <= 31:
+                    return True
+            except ValueError:
+                pass
     # IPv6 localhost
     if ip == '::1':
         return True
@@ -38,22 +49,8 @@ def get_geolocation(ip):
         if data.get('status') == 'success':
             return data.get('city'), data.get('country'), data.get('lat'), data.get('lon')
         else:
-            logging.warning(f"ip-api.com failed for {ip}: {data.get('message')}")
+            logger.warning(f"ip-api.com failed for {ip}: {data.get('message')}")
     except Exception as e:
-        logging.warning(f"ip-api.com error for {ip}: {e}")
-
-    # Optional fallback (uncomment if you have a token)
-    # try:
-    #     token = "YOUR_IPINFO_TOKEN"
-    #     url = f"https://ipinfo.io/{ip}/json?token={token}"
-    #     resp = requests.get(url, timeout=3)
-    #     data = resp.json()
-    #     if 'city' in data:
-    #         loc = data.get('loc', '').split(',')
-    #         lat = float(loc[0]) if len(loc) > 0 else None
-    #         lon = float(loc[1]) if len(loc) > 1 else None
-    #         return data.get('city'), data.get('country'), lat, lon
-    # except Exception as e:
-    #     logging.warning(f"ipinfo.io error for {ip}: {e}")
+        logger.warning(f"ip-api.com error for {ip}: {e}")
 
     return None, None, None, None
