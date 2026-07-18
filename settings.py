@@ -2,7 +2,9 @@
 import os
 
 ssl_enabled = os.getenv('DB_SSL', 'false').lower() == 'true'
-ssl_config = True if ssl_enabled else None  # True enables SSL without cert verification (works for most cloud DBs)
+# For cloud MySQL (Railway, PlanetScale, etc.), use {'ssl': {}} to enable SSL without cert verification
+# For local/dev, use None
+ssl_config = {'ssl': {}} if ssl_enabled else None
 
 DB_CONFIG = {
     'user': os.getenv('DB_USER', 'root'),

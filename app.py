@@ -43,11 +43,16 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
 app.config['SESSION_COOKIE_NAME'] = 'session'
+app.config['SESSION_COOKIE_SECURE'] = True  # Required for cross-origin cookies
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'  # Required for cross-origin cookies
 
-# CORS for Vercel frontend
-CORS(app, 
-     origins=[os.getenv("FRONTEND_URL", "http://localhost:5175"), "https://*.vercel.app"],
-     supports_credentials=True)
+# CORS for Vercel frontend - allow all vercel.app subdomains
+frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5175")
+CORS(app,
+     origins=[frontend_url, r"https://.*\.vercel\.app"],
+     supports_credentials=True,
+     allow_headers=["Content-Type", "Authorization"],
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
 # ---------- Load About KAIZY info ----------
 ABOUT_FILE = os.path.join(os.path.dirname(__file__), 'about_kaizy.txt')
