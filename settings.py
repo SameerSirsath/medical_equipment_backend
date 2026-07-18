@@ -1,6 +1,9 @@
 # settings.py
 import os
 
+ssl_enabled = os.getenv('DB_SSL', 'false').lower() == 'true'
+ssl_config = True if ssl_enabled else None  # True enables SSL without cert verification (works for most cloud DBs)
+
 DB_CONFIG = {
     'user': os.getenv('DB_USER', 'root'),
     'password': os.getenv('DB_PASSWORD', ''),
@@ -8,7 +11,7 @@ DB_CONFIG = {
     'database': os.getenv('DB_NAME', 'medical_equipment'),
     'port': int(os.getenv('DB_PORT', 3306)),
     'charset': 'utf8mb4',
-    'ssl': {'ssl': {}} if os.getenv('DB_SSL', 'false').lower() == 'true' else None,
+    'ssl': ssl_config,
     'connect_timeout': 10,
 }
 # Remove None ssl key
