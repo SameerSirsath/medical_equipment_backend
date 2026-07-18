@@ -1,19 +1,20 @@
 import pymysql
 import re
-from settings import DB_CONFIG
-import uuid
-from datetime import datetime as dt, timedelta   # <-- renamed import
 import os
-from cryptography.fernet import Fernet
-from dotenv import load_dotenv
+import uuid
+import json
 import bcrypt
 import hashlib
 import random
 import string
-import json
+from datetime import datetime as dt, timedelta
+from cryptography.fernet import Fernet
+from dotenv import load_dotenv
 from format_time import format_ist
+
 load_dotenv()
 
+# ── Encryption Key ─────────────────────────────────────────────
 ENCRYPTION_KEY = os.getenv('ENCRYPTION_KEY')
 if not ENCRYPTION_KEY:
     raise ValueError("ENCRYPTION_KEY environment variable is not set.")
@@ -33,11 +34,85 @@ def decrypt_data(ciphertext: str) -> str:
         return ciphertext
 
 def hash_value(value: str) -> str:
-    """Return SHA256 hex digest for deterministic lookup."""
     return hashlib.sha256(value.encode()).hexdigest()
 
+# ── Database Configuration ────────────────────────────────────
+# All values come from environment variables (Railway)
+DB_CONFIG = {
+    'host': os.getenv('DB_HOST'),
+    'user': os.getenv('DB_USER'),
+    'password': os.getenv('DB_PASSWORD'),
+    'database': os.getenv('DB_NAME'),
+    'port': int(os.getenv('DB_PORT', 3306)),
+    'charset': 'utf8mb4',
+    'autocommit': False,
+    'connect_timeout': 10,
+}
 
-# ---------- Formatting Helpers ----------
+# SSL handling – Railway requires SSL
+db_ssl = os.getenv('DB_SSL', 'false').lower()
+if db_ssl in ('true', '1', 'yes'):
+    # Use system's default CA certificates (works on Render)
+    DB_CONFIG['ssl'] = {'ca': None}
+
+# Validate required config
+required_keys = ['host', 'user', 'password', 'database']
+missing = [k for k in required_keys if not DB_CONFIG.get(k)]
+if missing:
+    raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
+
+# ── Connection Pool ────────────────────────────────────────────
+class ConnectionPool:
+    def __init__(self, config, max_connections=10):
+        self.config = config
+        self.max_connections = max_connections
+        self._connections = []
+        self._in_use = set()
+
+    def get_connection(self):
+        # Try to reuse an existing connection
+        for conn in self._connections:
+            if conn not in self._in_use:
+                try:
+                    conn.ping(reconnect=True)
+                    self._in_use.add(conn)
+                    return conn
+                except Exception:
+                    self._connections.remove(conn)
+                    break
+        # Create new connection if under limit
+        if len(self._connections) < self.max_connections:
+            conn = pymysql.connect(**self.config)
+            self._connections.append(conn)
+            self._in_use.add(conn)
+            return conn
+        # Fallback: create a new one and close after use (not pooled)
+        return pymysql.connect(**self.config)
+
+    def release_connection(self, conn):
+        if conn in self._in_use:
+            self._in_use.remove(conn)
+
+    def close_all(self):
+        for conn in self._connections:
+            try:
+                conn.close()
+            except:
+                pass
+        self._connections = []
+        self._in_use = set()
+
+_pool = ConnectionPool(DB_CONFIG, max_connections=10)
+
+def get_db_connection():
+    """Get a database connection from the pool."""
+    return _pool.get_connection()
+
+def release_db_connection(conn):
+    """Release a connection back to the pool."""
+    _pool.release_connection(conn)
+
+# ── Formatting Helpers ────────────────────────────────────────
 def format_list_field(text):
     if not text:
         return "Not available."
@@ -59,12 +134,12 @@ def format_directions(text):
     else:
         return text.strip()
 
-
-# ---------- Database Retrieval ----------
+# ── Database Retrieval ────────────────────────────────────────
 def get_product_context(product_id):
-    conn = pymysql.connect(**DB_CONFIG, cursorclass=pymysql.cursors.DictCursor)
+    conn = None
     try:
-        with conn.cursor() as cursor:
+        conn = get_db_connection()
+        with conn.cursor(pymysql.cursors.DictCursor) as cursor:
             cursor.execute("SELECT * FROM equipment WHERE equipment_id = %s", (product_id,))
             product = cursor.fetchone()
             if not product:
@@ -93,39 +168,47 @@ def get_product_context(product_id):
                     product[key] = str(product[key])[:800] + "... (truncated)"
 
             return product
+    except Exception as e:
+        raise Exception(f"Database error in get_product_context: {str(e)}")
     finally:
-        conn.close()
+        if conn:
+            release_db_connection(conn)
 
 def get_all_categories():
-    conn = pymysql.connect(**DB_CONFIG)
+    conn = None
     try:
+        conn = get_db_connection()
         with conn.cursor() as cursor:
             cursor.execute("SELECT name FROM category ORDER BY name")
             return [row[0] for row in cursor.fetchall()]
     finally:
-        conn.close()
+        if conn:
+            release_db_connection(conn)
 
 def get_products_by_category(category_name):
-    conn = pymysql.connect(**DB_CONFIG, cursorclass=pymysql.cursors.DictCursor)
+    conn = None
     try:
-        with conn.cursor() as cursor:
+        conn = get_db_connection()
+        with conn.cursor(pymysql.cursors.DictCursor) as cursor:
             cursor.execute("""
                 SELECT e.equipment_id, e.name
                 FROM equipment e
-                JOIN category c ON e.category_id = c.category_id
+                JOIN equipment_category ec ON e.equipment_id = ec.equipment_id
+                JOIN category c ON ec.category_id = c.category_id
                 WHERE c.name = %s
                 ORDER BY e.name
             """, (category_name,))
             return cursor.fetchall()
     finally:
-        conn.close()
+        if conn:
+            release_db_connection(conn)
 
-
-# ---------- Inquiry Storage ----------
+# ── Inquiry Storage ───────────────────────────────────────────
 def save_inquiry(name, email, contact, product_id, product_name, category,
                  inquiry_type='quote', requirements='', user_id=None):
-    conn = pymysql.connect(**DB_CONFIG)
+    conn = None
     try:
+        conn = get_db_connection()
         with conn.cursor() as cursor:
             enc_name = encrypt_data(name)
             enc_email = encrypt_data(email)
@@ -146,13 +229,17 @@ def save_inquiry(name, email, contact, product_id, product_name, category,
                                  email_hash, contact_hash, user_id))
             conn.commit()
             return cursor.lastrowid
+    except Exception as e:
+        raise Exception(f"Database error in save_inquiry: {str(e)}")
     finally:
-        conn.close()
+        if conn:
+            release_db_connection(conn)
 
-# ---------- Session Management ----------
+# ── Session Management ────────────────────────────────────────
 def upsert_session(session_id, ip, city, country, lat, lon, user_agent, user_id=None):
-    conn = pymysql.connect(**DB_CONFIG)
+    conn = None
     try:
+        conn = get_db_connection()
         with conn.cursor() as cursor:
             cursor.execute("SELECT session_id FROM user_session WHERE session_id = %s", (session_id,))
             exists = cursor.fetchone()
@@ -175,13 +262,16 @@ def upsert_session(session_id, ip, city, country, lat, lon, user_agent, user_id=
                     (session_id, ip, city, country, lat, lon, user_agent, user_id, dt.now(), dt.now())
                 )
             conn.commit()
+    except Exception as e:
+        raise Exception(f"Database error in upsert_session: {str(e)}")
     finally:
-        conn.close()
+        if conn:
+            release_db_connection(conn)
 
 def link_session_to_user(session_id: str, user_id: int):
-    """Update user_session with user_id."""
-    conn = pymysql.connect(**DB_CONFIG)
+    conn = None
     try:
+        conn = get_db_connection()
         with conn.cursor() as cursor:
             cursor.execute(
                 "UPDATE user_session SET user_id = %s WHERE session_id = %s",
@@ -189,13 +279,14 @@ def link_session_to_user(session_id: str, user_id: int):
             )
             conn.commit()
     finally:
-        conn.close()
+        if conn:
+            release_db_connection(conn)
 
-
-# ---------- Chat History ----------
+# ── Chat History ──────────────────────────────────────────────
 def log_chat_message(session_id, product_id, user_msg, bot_msg, user_id=None):
-    conn = pymysql.connect(**DB_CONFIG)
+    conn = None
     try:
+        conn = get_db_connection()
         with conn.cursor() as cursor:
             enc_user = encrypt_data(user_msg)
             enc_bot = encrypt_data(bot_msg)
@@ -206,14 +297,17 @@ def log_chat_message(session_id, product_id, user_msg, bot_msg, user_id=None):
                 (session_id, product_id, enc_user, enc_bot, dt.now(), user_id)
             )
             conn.commit()
+    except Exception as e:
+        raise Exception(f"Database error in log_chat_message: {str(e)}")
     finally:
-        conn.close()
+        if conn:
+            release_db_connection(conn)
 
 def get_chat_history(user_id, limit=20):
-    """(Legacy) Retrieve chat history for a user across all time."""
-    conn = pymysql.connect(**DB_CONFIG, cursorclass=pymysql.cursors.DictCursor)
+    conn = None
     try:
-        with conn.cursor() as cursor:
+        conn = get_db_connection()
+        with conn.cursor(pymysql.cursors.DictCursor) as cursor:
             cursor.execute(
                 """SELECT user_message, bot_response
                    FROM chat_history
@@ -230,15 +324,14 @@ def get_chat_history(user_id, limit=20):
                 history.append({'user': user_msg, 'assistant': bot_msg})
             return history
     finally:
-        conn.close()
+        if conn:
+            release_db_connection(conn)
+
 def get_todays_chat_history(user_id: int, limit: int = 100):
-    """
-    Fetch all chat history for a specific user (no time filter).
-    Returns list of dicts with product_name, timestamp, user_message, bot_response.
-    """
-    conn = pymysql.connect(**DB_CONFIG, cursorclass=pymysql.cursors.DictCursor)
+    conn = None
     try:
-        with conn.cursor() as cursor:
+        conn = get_db_connection()
+        with conn.cursor(pymysql.cursors.DictCursor) as cursor:
             cursor.execute("""
                 SELECT 
                     e.name AS product_name,
@@ -261,10 +354,13 @@ def get_todays_chat_history(user_id: int, limit: int = 100):
                     row['timestamp_ist'] = ''
             return rows
     finally:
-        conn.close()
+        if conn:
+            release_db_connection(conn)
+
 def delete_old_chat_history(days=4):
-    conn = pymysql.connect(**DB_CONFIG)
+    conn = None
     try:
+        conn = get_db_connection()
         with conn.cursor() as cursor:
             sql = "DELETE FROM chat_history WHERE timestamp < NOW() - INTERVAL %s DAY"
             cursor.execute(sql, (days,))
@@ -272,11 +368,13 @@ def delete_old_chat_history(days=4):
             conn.commit()
             return deleted
     finally:
-        conn.close()
+        if conn:
+            release_db_connection(conn)
 
 def delete_old_sessions(days=4):
-    conn = pymysql.connect(**DB_CONFIG)
+    conn = None
     try:
+        conn = get_db_connection()
         with conn.cursor() as cursor:
             sql = "DELETE FROM user_sessions WHERE last_activity < NOW() - INTERVAL %s DAY"
             cursor.execute(sql, (days,))
@@ -284,12 +382,13 @@ def delete_old_sessions(days=4):
             conn.commit()
             return deleted
     finally:
-        conn.close()
-
+        if conn:
+            release_db_connection(conn)
 
 def save_cookie_consent(session_id, status, preferences):
-    conn = pymysql.connect(**DB_CONFIG)
+    conn = None
     try:
+        conn = get_db_connection()
         with conn.cursor() as cursor:
             sql = """
                 INSERT INTO cookie_consent (session_id, consent_status, preferences, consent_timestamp)
@@ -298,14 +397,14 @@ def save_cookie_consent(session_id, status, preferences):
             cursor.execute(sql, (session_id, status, json.dumps(preferences)))
             conn.commit()
     finally:
-        conn.close()
+        if conn:
+            release_db_connection(conn)
 
-
-
-
+# ── User Management ───────────────────────────────────────────
 def create_user(username: str, email: str, phone: str, password: str) -> int:
-    conn = pymysql.connect(**DB_CONFIG)
+    conn = None
     try:
+        conn = get_db_connection()
         with conn.cursor() as cursor:
             password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
             enc_email = encrypt_data(email)
@@ -320,14 +419,18 @@ def create_user(username: str, email: str, phone: str, password: str) -> int:
             cursor.execute(sql, (username, enc_email, email_hash, enc_phone, phone_hash, password_hash))
             conn.commit()
             return cursor.lastrowid
+    except Exception as e:
+        raise Exception(f"Database error in create_user: {str(e)}")
     finally:
-        conn.close()
+        if conn:
+            release_db_connection(conn)
 
 def find_user_by_contact(contact: str):
     contact_hash = hash_value(contact)
-    conn = pymysql.connect(**DB_CONFIG, cursorclass=pymysql.cursors.DictCursor)
+    conn = None
     try:
-        with conn.cursor() as cursor:
+        conn = get_db_connection()
+        with conn.cursor(pymysql.cursors.DictCursor) as cursor:
             cursor.execute("SELECT * FROM users WHERE email_hash = %s", (contact_hash,))
             user = cursor.fetchone()
             if not user:
@@ -340,15 +443,17 @@ def find_user_by_contact(contact: str):
                 del user['phone_encrypted']
             return user
     finally:
-        conn.close()
+        if conn:
+            release_db_connection(conn)
 
 def verify_password(user: dict, plain_password: str) -> bool:
     return bcrypt.checkpw(plain_password.encode(), user['password_hash'].encode())
 
 def get_user_from_session(session_id: str):
-    conn = pymysql.connect(**DB_CONFIG, cursorclass=pymysql.cursors.DictCursor)
+    conn = None
     try:
-        with conn.cursor() as cursor:
+        conn = get_db_connection()
+        with conn.cursor(pymysql.cursors.DictCursor) as cursor:
             cursor.execute("""
                 SELECT u.* FROM users u
                 JOIN user_session s ON s.user_id = u.id
@@ -362,25 +467,65 @@ def get_user_from_session(session_id: str):
                 del user['phone_encrypted']
             return user
     finally:
-        conn.close()
+        if conn:
+            release_db_connection(conn)
 
 def mark_user_verified(user_id: int):
-    conn = pymysql.connect(**DB_CONFIG)
+    conn = None
     try:
+        conn = get_db_connection()
         with conn.cursor() as cursor:
             cursor.execute("UPDATE users SET is_verified = TRUE WHERE id = %s", (user_id,))
             conn.commit()
     finally:
-        conn.close()
+        if conn:
+            release_db_connection(conn)
 
+def find_user_by_username(username: str):
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor(pymysql.cursors.DictCursor) as cursor:
+            cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+            return cursor.fetchone()
+    finally:
+        if conn:
+            release_db_connection(conn)
+
+def find_user_by_email(email: str):
+    email_hash = hash_value(email)
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor(pymysql.cursors.DictCursor) as cursor:
+            cursor.execute("SELECT id FROM users WHERE email_hash = %s", (email_hash,))
+            return cursor.fetchone()
+    finally:
+        if conn:
+            release_db_connection(conn)
+
+def find_user_by_phone(phone: str):
+    phone_hash = hash_value(phone)
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor(pymysql.cursors.DictCursor) as cursor:
+            cursor.execute("SELECT id FROM users WHERE phone_hash = %s", (phone_hash,))
+            return cursor.fetchone()
+    finally:
+        if conn:
+            release_db_connection(conn)
+
+# ── OTP Management ─────────────────────────────────────────────
 def generate_otp(session_id: str, contact_type: str, contact: str) -> str:
     otp_code = ''.join(random.choices(string.digits, k=6))
     expires_at = dt.now() + timedelta(minutes=5)
     enc_contact = encrypt_data(contact)
     contact_hash = hash_value(contact)
     enc_otp = encrypt_data(otp_code)
-    conn = pymysql.connect(**DB_CONFIG)
+    conn = None
     try:
+        conn = get_db_connection()
         with conn.cursor() as cursor:
             cursor.execute(
                 "DELETE FROM otp_verifications WHERE session_id = %s AND contact_hash = %s AND verified = FALSE",
@@ -394,14 +539,16 @@ def generate_otp(session_id: str, contact_type: str, contact: str) -> str:
             cursor.execute(sql, (session_id, contact_type, enc_contact, contact_hash, enc_otp, expires_at))
             conn.commit()
     finally:
-        conn.close()
+        if conn:
+            release_db_connection(conn)
     return otp_code
 
 def verify_otp(session_id: str, contact: str, otp_input: str) -> bool:
     contact_hash = hash_value(contact)
-    conn = pymysql.connect(**DB_CONFIG, cursorclass=pymysql.cursors.DictCursor)
+    conn = None
     try:
-        with conn.cursor() as cursor:
+        conn = get_db_connection()
+        with conn.cursor(pymysql.cursors.DictCursor) as cursor:
             cursor.execute(
                 """
                 SELECT id, otp_code_encrypted, expires_at, attempts 
@@ -433,12 +580,14 @@ def verify_otp(session_id: str, contact: str, otp_input: str) -> bool:
             conn.commit()
             return True
     finally:
-        conn.close()
+        if conn:
+            release_db_connection(conn)
 
 def is_contact_verified(session_id: str, contact: str) -> bool:
     contact_hash = hash_value(contact)
-    conn = pymysql.connect(**DB_CONFIG)
+    conn = None
     try:
+        conn = get_db_connection()
         with conn.cursor() as cursor:
             cursor.execute(
                 "SELECT id FROM otp_verifications WHERE session_id = %s AND contact_hash = %s AND verified = TRUE",
@@ -446,16 +595,17 @@ def is_contact_verified(session_id: str, contact: str) -> bool:
             )
             return cursor.fetchone() is not None
     finally:
-        conn.close()
+        if conn:
+            release_db_connection(conn)
 
-
-
+# ── Inquiry Helpers ────────────────────────────────────────────
 def has_existing_inquiry(email: str, contact: str, product_id: int, days: int = 30) -> bool:
     if not email and not contact:
         return False
-    conn = pymysql.connect(**DB_CONFIG, cursorclass=pymysql.cursors.DictCursor)
+    conn = None
     try:
-        with conn.cursor() as cursor:
+        conn = get_db_connection()
+        with conn.cursor(pymysql.cursors.DictCursor) as cursor:
             conditions = []
             params = [product_id, days]
             if email:
@@ -475,18 +625,16 @@ def has_existing_inquiry(email: str, contact: str, product_id: int, days: int = 
             cursor.execute(sql, params)
             return cursor.fetchone() is not None
     finally:
-        conn.close()
+        if conn:
+            release_db_connection(conn)
 
 def has_today_inquiry(email: str, contact: str) -> bool:
-    """
-    Check if there is an inquiry from this user (by email or phone) today.
-    Returns True if found (i.e., daily limit reached).
-    """
     if not email and not contact:
         return False
-    conn = pymysql.connect(**DB_CONFIG, cursorclass=pymysql.cursors.DictCursor)
+    conn = None
     try:
-        with conn.cursor() as cursor:
+        conn = get_db_connection()
+        with conn.cursor(pymysql.cursors.DictCursor) as cursor:
             conditions = []
             params = []
             if email:
@@ -505,42 +653,14 @@ def has_today_inquiry(email: str, contact: str) -> bool:
             cursor.execute(sql, params)
             return cursor.fetchone() is not None
     finally:
-        conn.close()
-
-# (Legacy) keep old function if needed
-def has_daily_inquiry(email: str, contact: str, hours: int = 24):
-    # This is kept for backward compatibility; you may remove it if you prefer.
-    return False
-
-def get_user_chat_history(user_id: int, limit: int = 50):
-    # Legacy all-time history – kept for reference
-    conn = pymysql.connect(**DB_CONFIG, cursorclass=pymysql.cursors.DictCursor)
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT 
-                    e.name AS product_name,
-                    ch.timestamp,
-                    ch.user_message,
-                    ch.bot_response
-                FROM chat_history ch
-                JOIN equipment e ON ch.product_id = e.equipment_id
-                WHERE ch.user_id = %s
-                ORDER BY ch.timestamp DESC
-                LIMIT %s
-            """, (user_id, limit))
-            rows = cursor.fetchall()
-            for row in rows:
-                row['user_message'] = decrypt_data(row['user_message'])
-                row['bot_response'] = decrypt_data(row['bot_response'])
-            return rows
-    finally:
-        conn.close()
+        if conn:
+            release_db_connection(conn)
 
 def get_user_inquiries(user_id: int, limit: int = 50):
-    conn = pymysql.connect(**DB_CONFIG, cursorclass=pymysql.cursors.DictCursor)
+    conn = None
     try:
-        with conn.cursor() as cursor:
+        conn = get_db_connection()
+        with conn.cursor(pymysql.cursors.DictCursor) as cursor:
             cursor.execute("""
                 SELECT 
                     id,
@@ -556,7 +676,6 @@ def get_user_inquiries(user_id: int, limit: int = 50):
                 LIMIT %s
             """, (user_id, limit))
             rows = cursor.fetchall()
-            # Convert created_at to IST string and add as new field
             for row in rows:
                 if row.get('created_at'):
                     row['created_at_ist'] = format_ist(row['created_at'])
@@ -564,36 +683,13 @@ def get_user_inquiries(user_id: int, limit: int = 50):
                     row['created_at_ist'] = ''
             return rows
     finally:
-        conn.close()
+        if conn:
+            release_db_connection(conn)
 
-def find_user_by_username(username: str):
-    """Return user if username exists, else None."""
-    conn = pymysql.connect(**DB_CONFIG, cursorclass=pymysql.cursors.DictCursor)
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
-            return cursor.fetchone()
-    finally:
-        conn.close()
+# Legacy functions (kept for compatibility)
+def has_daily_inquiry(email: str, contact: str, hours: int = 24):
+    return False
 
-def find_user_by_email(email: str):
-    """Return user if email exists, else None."""
-    email_hash = hash_value(email)
-    conn = pymysql.connect(**DB_CONFIG, cursorclass=pymysql.cursors.DictCursor)
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT id FROM users WHERE email_hash = %s", (email_hash,))
-            return cursor.fetchone()
-    finally:
-        conn.close()
-
-def find_user_by_phone(phone: str):
-    """Return user if phone exists, else None."""
-    phone_hash = hash_value(phone)
-    conn = pymysql.connect(**DB_CONFIG, cursorclass=pymysql.cursors.DictCursor)
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT id FROM users WHERE phone_hash = %s", (phone_hash,))
-            return cursor.fetchone()
-    finally:
-        conn.close()
+def get_user_chat_history(user_id: int, limit: int = 50):
+    # Legacy – uses get_todays_chat_history or similar
+    return get_todays_chat_history(user_id, limit)
