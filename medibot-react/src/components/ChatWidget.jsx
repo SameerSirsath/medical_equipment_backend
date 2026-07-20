@@ -873,47 +873,7 @@ const ChatWidget = ({ avatarImg = '/IMG.png' }) => {
     } finally {
       isSendingSignupOtp.current = false;
     }
-  };
-
-// ---------- Signup OTP Verification (in separate modal) ----------
-  const signupVerifyOtp = async (e) => {
-    e.preventDefault();
-    setSignupOtpError('');
-    if (!signupOtp || signupOtp.length !== 6) {
-      setSignupOtpError('Please enter a 6-digit OTP.');
-      return;
-    }
-    try {
-      const data = await apiPost('/api/signup', {
-        username: signupUsername,
-        email: signupEmail,
-        phone: signupPhone,
-        password: signupPassword,
-        otp: signupOtp
-      });
-      if (data.success) {
-        try {
-          const loginData = await apiPost('/api/login', { contact: signupEmail, password: signupPassword });
-          if (loginData.success) {
-            setCurrentUser(loginData.user);
-            setCookie('user', loginData.user);
-            setSignupOtpModalOpen(false);
-            resetSignupForm();
-            alert('✅ Account created! You are now logged in.');
-          } else {
-            setSignupOtpError('Signup succeeded but login failed. Please log in manually.');
-          }
-        } catch (loginErr) {
-          setSignupOtpError('Signup succeeded but login failed. Please log in manually.');
-        }
-      } else {
-        setSignupOtpError(data.error || 'Signup failed');
-      }
-} catch (err) {
-      const errorMsg = err.message || 'Signup failed. Please try again.';
-      setSignupOtpError(errorMsg);
-    }
-  };
+};
 
   // ---------- Signup OTP Verification (for separate modal) ----------
   const signupVerifyOtp = async (e) => {
