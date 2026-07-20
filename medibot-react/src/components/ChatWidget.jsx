@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { fetchBootstrapData, apiGet, apiPost } from '../api/client';
 import './ChatWidget.css';
 
-const ChatWidget = ({ avatarImg = '/static/IMG.png' }) => {
+const ChatWidget = ({ avatarImg = 'IMG.png' }) => {
   // ---------- States ----------
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelClosing, setPanelClosing] = useState(false);
