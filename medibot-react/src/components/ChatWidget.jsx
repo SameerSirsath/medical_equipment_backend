@@ -13,6 +13,7 @@ const ChatWidget = ({ avatarImg = 'medibot-react\\src\\components\\IMG.png' }) =
   const [inputValue, setInputValue] = useState('');
   const [inputDisabled, setInputDisabled] = useState(true);
   const [sendDisabled, setSendDisabled] = useState(true);
+  const [isResponding, setIsResponding] = useState(false);
   const [currentStep, setCurrentStep] = useState('category');
   const [currentCategory, setCurrentCategory] = useState(null);
   const [currentProductId, setCurrentProductId] = useState(null);
@@ -493,7 +494,7 @@ const ChatWidget = ({ avatarImg = 'medibot-react\\src\\components\\IMG.png' }) =
   // ---- Send Message ----
   const sendMessage = async (messageOverride) => {
     const msg = messageOverride || inputValue.trim();
-    if (!msg || currentStep !== 'chat' || !currentProductId) {
+    if (!msg || currentStep !== 'chat' || !currentProductId || isResponding) {
       if (currentStep !== 'chat' || !currentProductId) {
         alert('Please select a product first.');
       }
@@ -503,6 +504,7 @@ const ChatWidget = ({ avatarImg = 'medibot-react\\src\\components\\IMG.png' }) =
     setInputValue('');
     addMessage(msg, 'user');
     setLastUserMessage(msg);
+    setIsResponding(true);
     setSendDisabled(true);
     setInputDisabled(true);
 
@@ -535,6 +537,7 @@ const ChatWidget = ({ avatarImg = 'medibot-react\\src\\components\\IMG.png' }) =
         addMessage('⚠️ Network error. Please try again.', 'bot');
       }
     } finally {
+      setIsResponding(false);
       setInputDisabled(false);
       setSendDisabled(false);
     }
@@ -1238,11 +1241,13 @@ const ChatWidget = ({ avatarImg = 'medibot-react\\src\\components\\IMG.png' }) =
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && !inputDisabled && sendMessage()}
-            placeholder={inputDisabled ? 'Select a product first' : 'Ask anything...'}
-            disabled={inputDisabled}
+            onKeyPress={(e) => e.key === 'Enter' && !inputDisabled && !isResponding && sendMessage()}
+            placeholder={inputDisabled || isResponding ? (isResponding ? 'Waiting for response...' : 'Select a product first') : 'Ask anything...'}
+            disabled={inputDisabled || isResponding}
           />
-          <button onClick={sendMessage} disabled={sendDisabled}>Send</button>
+          <button onClick={sendMessage} disabled={sendDisabled || isResponding}>
+            {isResponding ? '⏳' : 'Send'}
+          </button>
         </div>
 
         {/* Footer */}
