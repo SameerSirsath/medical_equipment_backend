@@ -86,10 +86,6 @@ const ChatWidget = ({ avatarImg = '/IMG.png' }) => {
     length: false, uppercase: false, lowercase: false, digit: false, special: false
   });
 
-  // NEW: Separate OTP verification modal state
-  const [signupOtpModalOpen, setSignupOtpModalOpen] = useState(false);
-  const [signupOtpVerified, setSignupOtpVerified] = useState(false);
-
   // Live validation for signup
   const [signupUsernameExists, setSignupUsernameExists] = useState(false);
   const [signupEmailExists, setSignupEmailExists] = useState(false);
