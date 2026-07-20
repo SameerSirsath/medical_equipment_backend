@@ -519,8 +519,6 @@ def find_user_by_phone(phone: str):
 # ── OTP Management ─────────────────────────────────────────────
 def generate_otp(session_id: str, contact_type: str, contact: str) -> str:
     otp_code = ''.join(random.choices(string.digits, k=6))
-    # Log OTP for testing (visible in Render logs)
-    print(f"🔐 OTP generated for {contact_type} {contact}: {otp_code}")
     expires_at = dt.now() + timedelta(minutes=5)
     enc_contact = encrypt_data(contact)
     contact_hash = hash_value(contact)
