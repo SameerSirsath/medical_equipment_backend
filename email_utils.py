@@ -53,30 +53,30 @@ SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
 SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASS = os.getenv("SMTP_PASS")
-SMTP_FROM = os.getenv("SMTP_FROM", SMTP_USER)               # actual email address
-SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "KAIZY")       # display name (optional)
+SMTP_FROM = os.getenv("SMTP_FROM", SMTP_USER)
+SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "KAIZY")
 
+EMAIL_ENABLED = bool(SMTP_USER and SMTP_PASS)
 
 def send_email(to_email: str, subject: str, body: str, html_body: str = None) -> bool:
     """
     Send an email using SMTP.
-    Returns True if successful, raises exception on failure.
+    If SMTP not configured, logs the email content instead.
     """
-    if not SMTP_USER or not SMTP_PASS:
-        raise ValueError("SMTP_USER and SMTP_PASS must be set in environment")
+    if not EMAIL_ENABLED:
+        print(f"📧 EMAIL DISABLED - Would send to: {to_email}")
+        print(f"   Subject: {subject}")
+        print(f"   Body: {body[:200]}...")
+        return True
 
-    # Create message container
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    # Use display name + actual email address
     msg["From"] = f"{SMTP_FROM_NAME} <{SMTP_FROM}>"
     msg["To"] = to_email
 
-    # Plain text version
     part1 = MIMEText(body, "plain", "utf-8")
     msg.attach(part1)
 
-    # HTML version (optional)
     if html_body:
         part2 = MIMEText(html_body, "html", "utf-8")
         msg.attach(part2)
@@ -89,12 +89,13 @@ def send_email(to_email: str, subject: str, body: str, html_body: str = None) ->
         return True
     except Exception as e:
         print(f"❌ Email sending failed: {e}")
-        raise  # re-raise so the caller can handle it
+        raise
 
 
 def send_otp_email(to_email: str, otp_code: str) -> bool:
     """
     Send an OTP email with a predefined template.
+    If SMTP not configured, prints OTP to console.
     """
     subject = "Your KAIZY Login OTP"
     body = f"""
@@ -124,4 +125,7 @@ KAIZY Team
 </body>
 </html>
 """
+    if not EMAIL_ENABLED:
+        print(f"🔐 OTP for {to_email}: {otp_code}")
+        return True
     return send_email(to_email, subject, body, html_body)
