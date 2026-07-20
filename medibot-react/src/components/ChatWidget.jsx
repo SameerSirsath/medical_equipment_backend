@@ -39,6 +39,7 @@ const ChatWidget = ({ avatarImg = 'medibot-react\\src\\components\\IMG.png' }) =
   const [inquiryModalOpen, setInquiryModalOpen] = useState(false);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [signupModalOpen, setSignupModalOpen] = useState(false);
+  const [signupOtpModalOpen, setSignupOtpModalOpen] = useState(false);
   const [chatHistoryModalOpen, setChatHistoryModalOpen] = useState(false);
   const [myRequestsModalOpen, setMyRequestsModalOpen] = useState(false);
   const [preferencesModalOpen, setPreferencesModalOpen] = useState(false);
@@ -84,6 +85,10 @@ const ChatWidget = ({ avatarImg = 'medibot-react\\src\\components\\IMG.png' }) =
   const [passwordRequirements, setPasswordRequirements] = useState({
     length: false, uppercase: false, lowercase: false, digit: false, special: false
   });
+
+  // NEW: Separate OTP verification modal state
+  const [signupOtpModalOpen, setSignupOtpModalOpen] = useState(false);
+  const [signupOtpVerified, setSignupOtpVerified] = useState(false);
 
   // Live validation for signup
   const [signupUsernameExists, setSignupUsernameExists] = useState(false);
@@ -822,7 +827,7 @@ const ChatWidget = ({ avatarImg = 'medibot-react\\src\\components\\IMG.png' }) =
     }, 400);
   };
 
-  // ---------- Signup Step 1 with cooldown and blocking ----------
+// ---------- Signup Step 1 with cooldown and blocking ----------
   const signupStep1 = async (e) => {
     e.preventDefault();
     if (isSendingSignupOtp.current || signupOtpTimer > 0) return;
@@ -862,7 +867,8 @@ const ChatWidget = ({ avatarImg = 'medibot-react\\src\\components\\IMG.png' }) =
     try {
       const data = await apiPost('/api/generate-otp', { contact: signupEmail, type: 'email' });
       if (data.success) {
-        setSignupStep(2);
+        setSignupModalOpen(false); // Close signup modal
+        setSignupOtpModalOpen(true); // Open separate OTP verification modal
       } else {
         setSignupError(data.error || 'Failed to send OTP');
       }
@@ -873,10 +879,14 @@ const ChatWidget = ({ avatarImg = 'medibot-react\\src\\components\\IMG.png' }) =
     }
   };
 
-  // ---------- Signup Step 2 ----------
-  const signupStep2 = async (e) => {
+// ---------- Signup OTP Verification (in separate modal) ----------
+  const signupVerifyOtp = async (e) => {
     e.preventDefault();
     setSignupOtpError('');
+    if (!signupOtp || signupOtp.length !== 6) {
+      setSignupOtpError('Please enter a 6-digit OTP.');
+      return;
+    }
     try {
       const data = await apiPost('/api/signup', {
         username: signupUsername,
@@ -891,7 +901,51 @@ const ChatWidget = ({ avatarImg = 'medibot-react\\src\\components\\IMG.png' }) =
           if (loginData.success) {
             setCurrentUser(loginData.user);
             setCookie('user', loginData.user);
-            setSignupModalOpen(false);
+            setSignupOtpModalOpen(false);
+            resetSignupForm();
+            alert('✅ Account created! You are now logged in.');
+          } else {
+            setSignupOtpError('Signup succeeded but login failed. Please log in manually.');
+          }
+        } catch (loginErr) {
+          setSignupOtpError('Signup succeeded but login failed. Please log in manually.');
+        }
+      } else {
+        setSignupOtpError(data.error || 'Signup failed');
+      }
+} catch (err) {
+      const errorMsg = err.message || 'Signup failed. Please try again.';
+      setSignupOtpError(errorMsg);
+    }
+  };
+
+  // ---------- Signup OTP Verification (for separate modal) ----------
+  const signupVerifyOtp = async (e) => {
+    e.preventDefault();
+    setSignupOtpError('');
+    if (!signupOtp || signupOtp.length !== 6) {
+      setSignupOtpError('Please enter a 6-digit OTP.');
+      return;
+    }
+    if (signupOtpExpiry === 0) {
+      setSignupOtpError('OTP expired. Please request a new one.');
+      return;
+    }
+    try {
+      const data = await apiPost('/api/signup', {
+        username: signupUsername,
+        email: signupEmail,
+        phone: signupPhone,
+        password: signupPassword,
+        otp: signupOtp
+      });
+      if (data.success) {
+        try {
+          const loginData = await apiPost('/api/login', { contact: signupEmail, password: signupPassword });
+          if (loginData.success) {
+            setCurrentUser(loginData.user);
+            setCookie('user', loginData.user);
+            setSignupOtpModalOpen(false);
             resetSignupForm();
             alert('✅ Account created! You are now logged in.');
           } else {
@@ -924,6 +978,8 @@ const ChatWidget = ({ avatarImg = 'medibot-react\\src\\components\\IMG.png' }) =
     setSignupPhoneExists(false);
     setSignupOtpTimer(0);
     setSignupOtpExpiry(0);
+    setSignupOtpVerified(false);
+    setSignupOtpModalOpen(false);
     if (signupOtpIntervalRef.current) {
       clearInterval(signupOtpIntervalRef.current);
       signupOtpIntervalRef.current = null;
@@ -1500,151 +1556,165 @@ const ChatWidget = ({ avatarImg = 'medibot-react\\src\\components\\IMG.png' }) =
           <div className="modal-overlay active" onClick={() => { setSignupModalOpen(false); resetSignupForm(); }}>
             <div className="modal-box" onClick={e => e.stopPropagation()}>
               <h3>📝 Sign Up</h3>
-              {signupStep === 1 ? (
-                <form onSubmit={signupStep1}>
-                  <label>Username *</label>
+              <form onSubmit={signupStep1}>
+                <label>Username *</label>
+                <input
+                  type="text"
+                  value={signupUsername}
+                  onChange={(e) => {
+                    setSignupUsername(e.target.value);
+                    checkUserExists(e.target.value, signupEmail, signupPhone);
+                  }}
+                  maxLength="50"
+                  required
+                />
+                <div className={`error-message ${!/^[A-Za-z ]+$/.test(signupUsername) && signupUsername.length > 0 ? 'visible' : ''}`}>
+                  Letters and spaces only.
+                </div>
+                {signupUsername && signupUsernameExists && (
+                  <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '2px' }}>
+                    ⚠️ Username already taken.
+                  </p>
+                )}
+
+                <label>Email *</label>
+                <input
+                  type="email"
+                  value={signupEmail}
+                  onChange={(e) => {
+                    setSignupEmail(e.target.value);
+                    checkUserExists(signupUsername, e.target.value, signupPhone);
+                  }}
+                  required
+                />
+                <div className={`error-message ${!/^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/.test(signupEmail) && signupEmail.length > 0 ? 'visible' : ''}`}>
+                  Valid email address required.
+                </div>
+                {signupEmail && signupEmailExists && (
+                  <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '2px' }}>
+                    ⚠️ Email already registered.
+                  </p>
+                )}
+
+                <label>Phone *</label>
+                <input
+                  type="tel"
+                  value={signupPhone}
+                  onChange={(e) => {
+                    setSignupPhone(e.target.value);
+                    checkUserExists(signupUsername, signupEmail, e.target.value);
+                  }}
+                  maxLength="10"
+                  required
+                />
+                <div className={`error-message ${!/^[7-9][0-9]{9}$/.test(signupPhone) && signupPhone.length > 0 ? 'visible' : ''}`}>
+                  Must be 10 digits starting with 7-9.
+                </div>
+                {signupPhone && signupPhoneExists && (
+                  <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '2px' }}>
+                    ⚠️ Phone number already registered.
+                  </p>
+                )}
+
+                <label>Password *</label>
+                <div className="password-wrapper">
                   <input
-                    type="text"
-                    value={signupUsername}
+                    type={passwordVisible.signup ? 'text' : 'password'}
+                    value={signupPassword}
                     onChange={(e) => {
-                      setSignupUsername(e.target.value);
-                      checkUserExists(e.target.value, signupEmail, signupPhone);
+                      setSignupPassword(e.target.value);
+                      validatePassword(e.target.value);
                     }}
-                    maxLength="50"
                     required
                   />
-                  <div className={`error-message ${!/^[A-Za-z ]+$/.test(signupUsername) && signupUsername.length > 0 ? 'visible' : ''}`}>
-                    Letters and spaces only.
+                  <button
+                    type="button"
+                    className="toggle-password"
+                    onClick={() => togglePassword('signup')}
+                    aria-label={passwordVisible.signup ? 'Hide password' : 'Show password'}
+                  >
+                    {passwordVisible.signup ? '🙈' : '👁️'}
+                  </button>
+                </div>
+                <div className="password-requirements">
+                  <div className={passwordRequirements.length ? 'valid' : 'invalid'}>
+                    {passwordRequirements.length ? '✅' : '❌'} At least 8 characters
                   </div>
-                  {signupUsername && signupUsernameExists && (
-                    <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '2px' }}>
-                      ⚠️ Username already taken.
-                    </p>
-                  )}
-
-                  <label>Email *</label>
-                  <input
-                    type="email"
-                    value={signupEmail}
-                    onChange={(e) => {
-                      setSignupEmail(e.target.value);
-                      checkUserExists(signupUsername, e.target.value, signupPhone);
-                    }}
-                    required
-                  />
-                  <div className={`error-message ${!/^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/.test(signupEmail) && signupEmail.length > 0 ? 'visible' : ''}`}>
-                    Valid email address required.
+                  <div className={passwordRequirements.uppercase ? 'valid' : 'invalid'}>
+                    {passwordRequirements.uppercase ? '✅' : '❌'} One uppercase letter
                   </div>
-                  {signupEmail && signupEmailExists && (
-                    <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '2px' }}>
-                      ⚠️ Email already registered.
-                    </p>
-                  )}
-
-                  <label>Phone *</label>
-                  <input
-                    type="tel"
-                    value={signupPhone}
-                    onChange={(e) => {
-                      setSignupPhone(e.target.value);
-                      checkUserExists(signupUsername, signupEmail, e.target.value);
-                    }}
-                    maxLength="10"
-                    required
-                  />
-                  <div className={`error-message ${!/^[7-9][0-9]{9}$/.test(signupPhone) && signupPhone.length > 0 ? 'visible' : ''}`}>
-                    Must be 10 digits starting with 7-9.
+                  <div className={passwordRequirements.lowercase ? 'valid' : 'invalid'}>
+                    {passwordRequirements.lowercase ? '✅' : '❌'} One lowercase letter
                   </div>
-                  {signupPhone && signupPhoneExists && (
-                    <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '2px' }}>
-                      ⚠️ Phone number already registered.
-                    </p>
-                  )}
+                  <div className={passwordRequirements.digit ? 'valid' : 'invalid'}>
+                    {passwordRequirements.digit ? '✅' : '❌'} One number
+                  </div>
+                  <div className={passwordRequirements.special ? 'valid' : 'invalid'}>
+                    {passwordRequirements.special ? '✅' : '❌'} One special char (!@#$%^&*)
+                  </div>
+                </div>
 
-                  <label>Password *</label>
-                  <div className="password-wrapper">
-                    <input
-                      type={passwordVisible.signup ? 'text' : 'password'}
-                      value={signupPassword}
-                      onChange={(e) => {
-                        setSignupPassword(e.target.value);
-                        validatePassword(e.target.value);
-                      }}
-                      required
-                    />
+                {signupError && <p style={{ color: 'red' }}>{signupError}</p>}
+                <div className="modal-actions">
+                  <button type="button" className="btn-secondary" onClick={() => { setSignupModalOpen(false); resetSignupForm(); }}>Cancel</button>
+                  <button type="submit" className="btn-primary" disabled={signupSendOtpDisabled || signupOtpTimer > 0}>Send OTP</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Signup OTP Verification Modal (separate popup) */}
+        {signupOtpModalOpen && (
+          <div className="modal-overlay active" onClick={() => { setSignupOtpModalOpen(false); resetSignupForm(); }}>
+            <div className="modal-box" onClick={e => e.stopPropagation()}>
+              <h3>🔐 Verify OTP</h3>
+              <p>We sent a 6-digit OTP to <b>{signupEmail}</b>.</p>
+              <form onSubmit={signupVerifyOtp}>
+                <label>OTP</label>
+                <input
+                  type="text"
+                  value={signupOtp}
+                  onChange={e => setSignupOtp(e.target.value)}
+                  maxLength="6"
+                  required
+                  placeholder="Enter 6-digit code"
+                  autoFocus
+                />
+                {signupOtpExpiry > 0 && (
+                  <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                    OTP expires in {Math.floor(signupOtpExpiry / 60)}:{String(signupOtpExpiry % 60).padStart(2, '0')}
+                  </p>
+                )}
+                {signupOtpExpiry === 0 && (
+                  <p style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '2px' }}>
+                    ⚠️ OTP expired. Please request a new one.
+                  </p>
+                )}
+                {signupOtpError && <p style={{ color: 'red' }}>{signupOtpError}</p>}
+                <div className="modal-actions" style={{ justifyContent: 'space-between' }}>
+                  <div>
                     <button
                       type="button"
-                      className="toggle-password"
-                      onClick={() => togglePassword('signup')}
-                      aria-label={passwordVisible.signup ? 'Hide password' : 'Show password'}
+                      className="btn-secondary"
+                      onClick={() => { setSignupOtpModalOpen(false); setSignupModalOpen(true); }}
                     >
-                      {passwordVisible.signup ? '🙈' : '👁️'}
+                      Back
                     </button>
                   </div>
-                  <div className="password-requirements">
-                    <div className={passwordRequirements.length ? 'valid' : 'invalid'}>
-                      {passwordRequirements.length ? '✅' : '❌'} At least 8 characters
-                    </div>
-                    <div className={passwordRequirements.uppercase ? 'valid' : 'invalid'}>
-                      {passwordRequirements.uppercase ? '✅' : '❌'} One uppercase letter
-                    </div>
-                    <div className={passwordRequirements.lowercase ? 'valid' : 'invalid'}>
-                      {passwordRequirements.lowercase ? '✅' : '❌'} One lowercase letter
-                    </div>
-                    <div className={passwordRequirements.digit ? 'valid' : 'invalid'}>
-                      {passwordRequirements.digit ? '✅' : '❌'} One number
-                    </div>
-                    <div className={passwordRequirements.special ? 'valid' : 'invalid'}>
-                      {passwordRequirements.special ? '✅' : '❌'} One special char (!@#$%^&*)
-                    </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={(e) => { e.preventDefault(); signupStep1(e); }}
+                      disabled={signupOtpTimer > 0}
+                    >
+                      Resend OTP
+                    </button>
+                    <button type="submit" className="btn-primary">Verify & Sign Up</button>
                   </div>
-
-                  {signupError && <p style={{ color: 'red' }}>{signupError}</p>}
-                  <div className="modal-actions">
-                    <button type="button" className="btn-secondary" onClick={() => setSignupModalOpen(false)}>Cancel</button>
-                    <button type="submit" className="btn-primary" disabled={signupSendOtpDisabled || signupOtpTimer > 0}>Send OTP</button>
-                  </div>
-                </form>
-              ) : (
-                <form onSubmit={signupStep2}>
-                  <p>We sent a 6‑digit OTP to your email.</p>
-                  <label>OTP</label>
-                  <input type="text" value={signupOtp} onChange={e => setSignupOtp(e.target.value)} maxLength="6" required />
-                  {signupOtpExpiry > 0 && (
-                    <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
-                      OTP expires in {Math.floor(signupOtpExpiry / 60)}:{String(signupOtpExpiry % 60).padStart(2, '0')}
-                    </p>
-                  )}
-                  {signupOtpExpiry === 0 && (
-                    <p style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '2px' }}>
-                      ⚠️ OTP expired. Please request a new one.
-                    </p>
-                  )}
-                  {signupOtpError && <p style={{ color: 'red' }}>{signupOtpError}</p>}
-                  <div className="modal-actions" style={{ justifyContent: 'space-between' }}>
-                    <div>
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        onClick={() => setSignupStep(1)}
-                      >
-                        Back
-                      </button>
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        onClick={(e) => signupStep1(e)}
-                        disabled={signupOtpTimer > 0}
-                      >
-                        Resend OTP
-                      </button>
-                      <button type="submit" className="btn-primary">Verify & Sign Up</button>
-                    </div>
-                  </div>
-                </form>
-              )}
+                </div>
+              </form>
             </div>
           </div>
         )}
