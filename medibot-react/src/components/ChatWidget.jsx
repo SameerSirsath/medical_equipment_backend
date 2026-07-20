@@ -134,6 +134,22 @@ const ChatWidget = ({ avatarImg = '/IMG.png' }) => {
   const messagesEndRef = useRef(null);
   const panelRef = useRef(null);
   const messagesContainerRef = useRef(null);
+  const authDropdownRef = useRef(null);
+  const userDropdownRef = useRef(null);
+
+  // ---------- Click outside to close dropdowns ----------
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (authDropdownRef.current && !authDropdownRef.current.contains(e.target)) {
+        setAuthDropdownOpen(false);
+      }
+      if (userDropdownRef.current && !userDropdownRef.current.contains(e.target)) {
+        setUserDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [authDropdownOpen, userDropdownOpen]);
 
   // ---------- Helper functions ----------
   const getTimestamp = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -1138,7 +1154,7 @@ const ChatWidget = ({ avatarImg = '/IMG.png' }) => {
           <h2>KAIZY</h2>
           <div className="auth-container">
             {!currentUser ? (
-              <div className={`auth-dropdown ${authDropdownOpen ? 'active' : ''}`}>
+              <div ref={authDropdownRef} className={`auth-dropdown ${authDropdownOpen ? 'active' : ''}`}>
                 <button className="auth-btn" onClick={() => setAuthDropdownOpen(!authDropdownOpen)}>Account ▾</button>
                 <div className="dropdown-content">
                   <a onClick={() => { setLoginModalOpen(true); setAuthDropdownOpen(false); }}>Login</a>
@@ -1146,7 +1162,7 @@ const ChatWidget = ({ avatarImg = '/IMG.png' }) => {
                 </div>
               </div>
             ) : (
-              <div className="user-greeting-wrapper">
+              <div ref={userDropdownRef} className="user-greeting-wrapper">
                 <span className="user-greeting" onClick={() => setUserDropdownOpen(!userDropdownOpen)}>
                   👋 {currentUser.username} ▾
                 </span>
