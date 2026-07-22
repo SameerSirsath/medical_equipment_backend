@@ -950,7 +950,6 @@ const ChatWidget = ({ avatarImg = '/IMG.png' }) => {
     setSignupPhoneExists(false);
     setSignupOtpTimer(0);
     setSignupOtpExpiry(0);
-    setSignupOtpVerified(false);
     setSignupOtpModalOpen(false);
     if (signupOtpIntervalRef.current) {
       clearInterval(signupOtpIntervalRef.current);
