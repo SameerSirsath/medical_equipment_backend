@@ -51,9 +51,9 @@ if not app.secret_key:
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
 app.config['SESSION_COOKIE_NAME'] = 'session'
 app.config['SESSION_COOKIE_SECURE'] = True          # HTTPS only
-app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'       # Good for cross-origin with same-site
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
+app.config['SESSION_COOKIE_HTTPONLY'] = True        # No JS access
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'      # Cross-origin (Vercel → Render)
+app.config['SESSION_COOKIE_DOMAIN'] = None          # Let browser handle
 
 # ── CORS Configuration ────────────────────────────────────────
 frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5175")
