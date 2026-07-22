@@ -26,8 +26,8 @@ from db_helper import (
     find_user_by_username,
     find_user_by_email,
     find_user_by_phone,
-    get_db_connection,          # NEW for feedback route
-    release_db_connection,      # NEW for feedback route
+    get_db_connection,
+    release_db_connection,
 )
 from email_utils import send_otp_email
 from agent import ask_agent
@@ -124,7 +124,7 @@ def get_relevant_fields(user_question: str, product_data: dict) -> dict:
                 relevant[field] = product_data.get(field)
     return relevant
 
-# ── Prompt Builder ────────────────────────────────────────────
+# ── Prompt Builder (IMPROVED) ─────────────────────────────────
 def build_chat_prompt(user_question, product_context, product_name, category_name, history):
     relevant_data = get_relevant_fields(user_question, product_context)
     context_lines = []
@@ -134,15 +134,16 @@ def build_chat_prompt(user_question, product_context, product_name, category_nam
             context_lines.append(f"{field_name}: {value}")
     context_str = "\n".join(context_lines)
 
+    # ── NEW SYSTEM MESSAGE (balanced, comprehensive) ──
     system_msg = (
-        "You are KAIZY, a concise and polite assistant for medical equipment. "
+        "You are KAIZY, a knowledgeable and professional assistant for medical equipment. "
         "Answer the user's question using ONLY the product information provided below. "
-        "Keep your answer as short as possible – ideally 1–2 sentences, or a brief bulleted list if needed. "
-        "Do not repeat the question or add extra commentary. "
+        "Provide a clear, detailed, and well-structured answer. "
+        "If there are multiple points, use a short bulleted list (using HTML <ul> and <li>). "
+        "Be thorough but avoid fluff – focus on the most relevant facts. "
         "If the information is not in the provided data, say: 'I don't have that information. Please contact our support team.' "
-        "Use HTML formatting only when necessary (e.g., <ul>, <li>, <b>). "
-        "Do not use Markdown. "
-        "Always be polite, professional, and helpful. Use courteous language such as 'please', 'thank you', and 'I'd be happy to assist'. "
+        "Use HTML formatting sparingly for readability (e.g., <b>, <ul>). Do not use Markdown. "
+        "Always be polite, professional, and helpful. "
         "Never repeat or restate the user’s question in your response. Only provide direct answers or polite refusals. "
         "If the user requests a quotation, pricing, or asks to speak to a representative, respond with a polite message acknowledging their request. "
         "For example: 'Thank you for your interest. I have raised an inquiry for you. Our team will contact you shortly with the details.' "
