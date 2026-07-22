@@ -45,13 +45,22 @@ services:
         sync: false
       - key: FRONTEND_URL
         sync: false
-      # ─── Email Configuration (Brevo API) ───
+      # ─── Email Configuration (Brevo API - Primary) ───
       - key: BREVO_API_KEY
         sync: false
       - key: BREVO_SENDER_EMAIL
         sync: false
       - key: BREVO_SENDER_NAME
         value: "KAIZY"
+      # ─── Email Fallback (SMTP - Optional) ───
+      - key: SMTP_HOST
+        value: "smtp-relay.brevo.com"
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
       - key: CONTACT_EMAIL
         value: "sales@kaizenmeds.com"
       - key: CONTACT_PHONE
