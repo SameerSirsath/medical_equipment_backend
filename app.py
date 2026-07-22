@@ -36,7 +36,7 @@ import os
 import uuid
 import pymysql
 from geo import get_client_ip, get_geolocation, is_private_ip
-from datetime import timedelta
+from datetime import timedelta, date
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -651,9 +651,14 @@ def track_session():
     if request.path in ('/health', '/test-db', '/status'):
         return
 
-    if 'session_id' not in session:
+    # Check if we need a new session (new day)
+    session_id = session.get('session_id')
+    today = date.today().isoformat()
+    
+    if 'session_id' not in session or session.get('session_date') != today:
         session.permanent = True
         session['session_id'] = str(uuid.uuid4())
+        session['session_date'] = today
 
     session_id = session['session_id']
     user_agent = request.headers.get('User-Agent', '')
