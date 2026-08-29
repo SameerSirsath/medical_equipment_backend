@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchBootstrapData, apiGet, apiPost } from '../api/client';
 import './ChatWidget.css';
@@ -293,7 +293,10 @@ const ChatWidget = ({ avatarImg = '/IMG.png' }) => {
 
   // ---- Restore saved state on component mount ----
   useEffect(() => {
-    restoreChatState();
+    const restored = restoreChatState();
+    if (!restored && window.innerWidth <= 600) {
+      setPanelOpen(true);
+    }
   }, []);
 
   // Save state whenever it changes (debounced)
