@@ -15,17 +15,20 @@ handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 logger.addHandler(handler)
 
-# ─── SMTP Configuration ───────────────────────────────────────
+# ─── SMTP / Google Script Configuration ──────────────────────
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
 SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASS = os.getenv("SMTP_PASS")
 SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "KAIZY")
 
+GOOGLE_SCRIPT_URL = os.getenv("GOOGLE_SCRIPT_URL", "https://script.google.com/macros/s/AKfycbxdZO-AEOlLQS9OywOln5LTPufDHD0ZWIR00ypcmeiH6UYf9zAWxU5nQ7HiLsH8w0dI/exec")
+GOOGLE_SCRIPT_TOKEN = os.getenv("GOOGLE_SCRIPT_TOKEN")
+
 # Validate required credentials at startup
-if not SMTP_USER or not SMTP_PASS:
+if not GOOGLE_SCRIPT_URL and (not SMTP_USER or not SMTP_PASS):
     raise ValueError(
-        "SMTP_USER and SMTP_PASS must be set in environment variables.\n"
+        "Either GOOGLE_SCRIPT_URL or both SMTP_USER and SMTP_PASS must be set in environment variables.\n"
         "Generate an App Password at: https://myaccount.google.com/apppasswords"
     )
 
@@ -116,7 +119,36 @@ def send_otp_email(to_email: str, otp_code: str) -> bool:
         logger.error("Recipient email is empty.")
         return False
 
-    # Build email content
+    # Check if we should use Google Apps Script Web App
+    if GOOGLE_SCRIPT_URL:
+        # Build email content
+        subject, plain_body, html_body = build_otp_email(otp_code)
+        payload = {
+            "to": to_email,
+            "otp": otp_code,
+            "subject": subject,
+            "body": plain_body,
+            "htmlBody": html_body
+        }
+        if GOOGLE_SCRIPT_TOKEN:
+            payload["auth_token"] = GOOGLE_SCRIPT_TOKEN
+            
+        try:
+            import requests
+            response = requests.post(GOOGLE_SCRIPT_URL, json=payload, timeout=15)
+            response.raise_for_status()
+            res_data = response.json()
+            if res_data.get("success"):
+                logger.info(f"✅ OTP email sent successfully to {to_email} via Google Apps Script")
+                return True
+            else:
+                logger.error(f"❌ Google Apps Script failed: {res_data.get('error')}")
+                return False
+        except Exception as e:
+            logger.error(f"❌ Failed to send OTP email via Google Apps Script: {e}")
+            return False
+
+    # Build email content (fallback to SMTP)
     subject, plain_body, html_body = build_otp_email(otp_code)
 
     # Create a multipart message with both plain and HTML alternatives

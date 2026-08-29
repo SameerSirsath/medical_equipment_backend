@@ -1,10 +1,11 @@
 services:
+  # ─── 1. Flask Backend Service ───
   - type: web
     name: medical-equipment-backend
     env: python
     region: oregon
     plan: free
-    buildCommand: chmod +x build.sh && ./build.sh
+    buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app --config gunicorn.conf.py
     envVars:
       - key: PYTHON_VERSION
@@ -43,9 +44,12 @@ services:
         value: "mistralai/mistral-7b-instruct:free,mistralai/mistral-7b-instruct,google/gemma-2-9b-it:free"
       - key: ADMIN_KEY
         sync: false
-      - key: FRONTEND_URL
+      # OPTIONAL: Google Apps Script Webhook configuration
+      - key: GOOGLE_SCRIPT_URL
         sync: false
-      # ─── Email Configuration (Gmail SMTP) ───
+      - key: GOOGLE_SCRIPT_TOKEN
+        sync: false
+      # OPTIONAL: SMTP Fallback configuration
       - key: SMTP_HOST
         value: "smtp.gmail.com"
       - key: SMTP_PORT
@@ -62,4 +66,22 @@ services:
         value: "+91 966 550 2190"
       - key: CONTACT_WEBSITE
         value: "kaizy.com"
+    autoDeploy: true
+
+  # ─── 2. Node.js Frontend / Proxy Service ───
+  - type: web
+    name: medical-equipment-frontend
+    env: node
+    region: oregon
+    plan: free
+    rootDir: medibot-react
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: FLASK_API_URL
+        value: "https://medical-equipment-backend.onrender.com"  # Replace with actual backend URL on Render
+      - key: PORT
+        value: "3000"
     autoDeploy: true
