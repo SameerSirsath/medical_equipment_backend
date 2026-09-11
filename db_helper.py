@@ -15,9 +15,7 @@ from format_time import format_ist
 load_dotenv()
 
 # ── Encryption Key ─────────────────────────────────────────────
-ENCRYPTION_KEY = os.getenv('ENCRYPTION_KEY')
-if not ENCRYPTION_KEY:
-    raise ValueError("ENCRYPTION_KEY environment variable is not set.")
+ENCRYPTION_KEY = os.getenv('ENCRYPTION_KEY', '4wRyYQineOkHaDXhF-Rwp3QfrrYDslRoxvUlVg_ZM34=')
 cipher = Fernet(ENCRYPTION_KEY.encode())
 
 def encrypt_data(plaintext: str) -> str:
@@ -37,27 +35,26 @@ def hash_value(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
 # ── Database Configuration ────────────────────────────────────
-# All values come from environment variables (Railway)
 DB_CONFIG = {
-    'host': os.getenv('DB_HOST'),
-    'user': os.getenv('DB_USER'),
-    'password': os.getenv('DB_PASSWORD'),
-    'database': os.getenv('DB_NAME'),
+    'host': os.getenv('DB_HOST', 'localhost'),
+    'user': os.getenv('DB_USER', 'root'),
+    'password': os.getenv('DB_PASSWORD', ''),
+    'database': os.getenv('DB_NAME', 'medical_equipment'),
     'port': int(os.getenv('DB_PORT', 3306)),
     'charset': 'utf8mb4',
     'autocommit': False,
     'connect_timeout': 10,
 }
 
-# SSL handling – Railway requires SSL
+# SSL handling – Railway / cloud requires SSL
 db_ssl = os.getenv('DB_SSL', 'false').lower()
 if db_ssl in ('true', '1', 'yes'):
     # Use system's default CA certificates (works on Render)
     DB_CONFIG['ssl'] = {'ca': None}
 
 # Validate required config
-required_keys = ['host', 'user', 'password', 'database']
-missing = [k for k in required_keys if not DB_CONFIG.get(k)]
+required_keys = ['host', 'user', 'database']
+missing = [k for k in required_keys if DB_CONFIG.get(k) is None or DB_CONFIG.get(k) == '']
 if missing:
     raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
 
@@ -376,7 +373,7 @@ def delete_old_sessions(days=4):
     try:
         conn = get_db_connection()
         with conn.cursor() as cursor:
-            sql = "DELETE FROM user_sessions WHERE last_activity < NOW() - INTERVAL %s DAY"
+            sql = "DELETE FROM user_session WHERE last_activity < NOW() - INTERVAL %s DAY"
             cursor.execute(sql, (days,))
             deleted = cursor.rowcount
             conn.commit()

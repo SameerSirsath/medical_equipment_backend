@@ -38,22 +38,44 @@ import pymysql
 from geo import get_client_ip, get_geolocation, is_private_ip
 from datetime import timedelta, date
 from dotenv import load_dotenv
+import sys
+
+# Ensure UTF-8 output on Windows consoles
+if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
 
 load_dotenv()
 
 app = Flask(__name__)
 
-# ── Production Configuration ──────────────────────────────────
-app.secret_key = os.getenv("SECRET_KEY")
-if not app.secret_key:
-    raise ValueError("SECRET_KEY environment variable is not set")
+# ── Session & Security Configuration ──────────────────────────
+app.secret_key = os.getenv("SECRET_KEY", "kaizy-default-secret-key-change-in-production")
 
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
 app.config['SESSION_COOKIE_NAME'] = 'session'
-app.config['SESSION_COOKIE_SECURE'] = True          # HTTPS only
 app.config['SESSION_COOKIE_HTTPONLY'] = True        # No JS access
-app.config['SESSION_COOKIE_SAMESITE'] = 'None'      # Cross-origin (Vercel → Render)
 app.config['SESSION_COOKIE_DOMAIN'] = None          # Let browser handle
+
+# Secure & SameSite configuration:
+# In production (HTTPS), use Secure=True and SameSite='None' for cross-origin.
+# In development (HTTP localhost), Secure=False and SameSite='Lax' so browsers accept cookies.
+is_production = os.getenv("FLASK_ENV", "development").lower() == "production"
+cookie_secure_env = os.getenv("SESSION_COOKIE_SECURE")
+if cookie_secure_env is not None:
+    app.config['SESSION_COOKIE_SECURE'] = cookie_secure_env.lower() in ('true', '1', 'yes')
+else:
+    app.config['SESSION_COOKIE_SECURE'] = is_production
+
+cookie_samesite_env = os.getenv("SESSION_COOKIE_SAMESITE")
+if cookie_samesite_env:
+    app.config['SESSION_COOKIE_SAMESITE'] = cookie_samesite_env
+else:
+    app.config['SESSION_COOKIE_SAMESITE'] = 'None' if app.config['SESSION_COOKIE_SECURE'] else 'Lax'
+
 
 # ── CORS Configuration ────────────────────────────────────────
 frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5175")
@@ -338,7 +360,7 @@ def chat():
             "I understand you have a service-related query. "
             "While I specialize in providing information about medical devices and their features, "
             "I will connect you with our support team who can assist with repairs, maintenance, warranty claims, and installation. "
-            "Please reach out to us directly at {CONTACT_EMAIL} or {CONTACT_PHONE}, and our team will be happy to help you promptly."
+            f"Please reach out to us directly at {CONTACT_EMAIL} or {CONTACT_PHONE}, and our team will be happy to help you promptly."
         )
         log_chat_message(
             session_id=session_id,
@@ -646,6 +668,8 @@ def cookie_consent():
 
 @app.before_request
 def track_session():
+    if request.method == 'OPTIONS':
+        return
     if request.endpoint and request.endpoint.startswith('static'):
         return
     # Skip for health/status to avoid DB dependency on health checks

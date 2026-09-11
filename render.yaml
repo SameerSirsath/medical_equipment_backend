@@ -33,7 +33,7 @@ services:
       - key: GROQ_API_KEYS
         sync: false
       - key: GROQ_MODELS
-        value: "llama-3.1-8b-instant,mixtral-8x7b-32768"
+        value: "groq/compound-mini,qwen/qwen3.8-27b,groq/compound,llama-3.1-8b-instant,mixtral-8x7b-32768"
       - key: MISTRAL_API_KEYS
         sync: false
       - key: MISTRAL_MODELS

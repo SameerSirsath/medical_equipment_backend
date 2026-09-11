@@ -142,11 +142,14 @@ def send_otp_email(to_email: str, otp_code: str) -> bool:
                 logger.info(f"✅ OTP email sent successfully to {to_email} via Google Apps Script")
                 return True
             else:
-                logger.error(f"❌ Google Apps Script failed: {res_data.get('error')}")
-                return False
+                logger.error(f"❌ Google Apps Script failed: {res_data.get('error')}. Trying SMTP fallback...")
         except Exception as e:
-            logger.error(f"❌ Failed to send OTP email via Google Apps Script: {e}")
-            return False
+            logger.error(f"❌ Failed to send OTP email via Google Apps Script: {e}. Trying SMTP fallback...")
+
+    # Fallback to SMTP if configured
+    if not (SMTP_USER and SMTP_PASS):
+        logger.error("SMTP credentials (SMTP_USER / SMTP_PASS) not configured.")
+        return False
 
     # Build email content (fallback to SMTP)
     subject, plain_body, html_body = build_otp_email(otp_code)
