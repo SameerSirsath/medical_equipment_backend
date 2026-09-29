@@ -35,22 +35,58 @@ def hash_value(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
 # ── Database Configuration ────────────────────────────────────
+# Supports switching between deployed (cloud) and local databases:
+# Set DB_TARGET=deployed or DB_TARGET=local in .env
+db_target = os.getenv('DB_TARGET', 'deployed').lower()
+
+if db_target == 'local':
+    db_host = os.getenv('LOCAL_DB_HOST', 'localhost')
+    db_port = int(os.getenv('LOCAL_DB_PORT', 3306))
+    db_user = os.getenv('LOCAL_DB_USER', 'root')
+    db_password = os.getenv('LOCAL_DB_PASSWORD', 'Sam25/03')
+    db_name = os.getenv('LOCAL_DB_NAME', 'medical_equipment')
+    db_ssl_val = os.getenv('LOCAL_DB_SSL', 'false').lower()
+else:
+    # 'deployed' target (or standard DB_* env vars set on Render)
+    db_host = os.getenv('DEPLOYED_DB_HOST', os.getenv('DB_HOST', 'thomas.proxy.rlwy.net'))
+    db_port = int(os.getenv('DEPLOYED_DB_PORT', os.getenv('DB_PORT', 37898)))
+    db_user = os.getenv('DEPLOYED_DB_USER', os.getenv('DB_USER', 'root'))
+    db_password = os.getenv('DEPLOYED_DB_PASSWORD', os.getenv('DB_PASSWORD', 'cuVsPhUqGZxlAvBVGfgvCCvmjXJCfWCh'))
+    db_name = os.getenv('DEPLOYED_DB_NAME', os.getenv('DB_NAME', 'railway'))
+    db_ssl_val = os.getenv('DEPLOYED_DB_SSL', os.getenv('DB_SSL', 'true')).lower()
+
 DB_CONFIG = {
-    'host': os.getenv('DB_HOST', 'localhost'),
-    'user': os.getenv('DB_USER', 'root'),
-    'password': os.getenv('DB_PASSWORD', ''),
-    'database': os.getenv('DB_NAME', 'medical_equipment'),
-    'port': int(os.getenv('DB_PORT', 3306)),
+    'host': db_host,
+    'user': db_user,
+    'password': db_password,
+    'database': db_name,
+    'port': db_port,
     'charset': 'utf8mb4',
     'autocommit': False,
     'connect_timeout': 10,
 }
 
 # SSL handling – Railway / cloud requires SSL
-db_ssl = os.getenv('DB_SSL', 'false').lower()
-if db_ssl in ('true', '1', 'yes'):
-    # Use system's default CA certificates (works on Render)
+if db_ssl_val in ('true', '1', 'yes'):
+    # Use system's default CA certificates (works on Render / Railway)
     DB_CONFIG['ssl'] = {'ca': None}
+
+# Prepare optional local fallback for dev environments
+FALLBACK_DB_CONFIG = None
+if db_host not in ('localhost', '127.0.0.1'):
+    fallback_ssl = os.getenv('LOCAL_DB_SSL', 'false').lower() in ('true', '1', 'yes')
+    FALLBACK_DB_CONFIG = {
+        'host': os.getenv('LOCAL_DB_HOST', 'localhost'),
+        'user': os.getenv('LOCAL_DB_USER', 'root'),
+        'password': os.getenv('LOCAL_DB_PASSWORD', 'Sam25/03'),
+        'database': os.getenv('LOCAL_DB_NAME', 'medical_equipment'),
+        'port': int(os.getenv('LOCAL_DB_PORT', 3306)),
+        'charset': 'utf8mb4',
+        'autocommit': False,
+        'connect_timeout': 3,
+    }
+    if fallback_ssl:
+        FALLBACK_DB_CONFIG['ssl'] = {'ca': None}
 
 # Validate required config
 required_keys = ['host', 'user', 'database']
@@ -60,8 +96,9 @@ if missing:
 
 # ── Connection Pool ────────────────────────────────────────────
 class ConnectionPool:
-    def __init__(self, config, max_connections=10):
+    def __init__(self, config, fallback_config=None, max_connections=10):
         self.config = config
+        self.fallback_config = fallback_config
         self.max_connections = max_connections
         self._connections = []
         self._in_use = set()
@@ -88,12 +125,26 @@ class ConnectionPool:
 
         # Create new connection if under limit
         if len(self._connections) < self.max_connections:
-            conn = pymysql.connect(**self.config)
+            try:
+                conn = pymysql.connect(**self.config)
+            except Exception as e:
+                if self.fallback_config:
+                    print(f"⚠️ Primary DB connection failed ({e}). Falling back to local DB...")
+                    conn = pymysql.connect(**self.fallback_config)
+                else:
+                    raise
             self._connections.append(conn)
             self._in_use.add(conn)
             return conn
+
         # Fallback: create a new one and close after use (not pooled)
-        return pymysql.connect(**self.config)
+        try:
+            return pymysql.connect(**self.config)
+        except Exception as e:
+            if self.fallback_config:
+                print(f"⚠️ Primary DB connection failed ({e}). Falling back to local DB...")
+                return pymysql.connect(**self.fallback_config)
+            raise
 
     def release_connection(self, conn):
         if conn in self._in_use:
@@ -108,7 +159,7 @@ class ConnectionPool:
         self._connections = []
         self._in_use = set()
 
-_pool = ConnectionPool(DB_CONFIG, max_connections=10)
+_pool = ConnectionPool(DB_CONFIG, fallback_config=FALLBACK_DB_CONFIG, max_connections=10)
 
 def get_db_connection():
     """Get a database connection from the pool."""
