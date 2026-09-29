@@ -1045,7 +1045,7 @@
         const errorEl = document.getElementById('signupError');
         errorEl.style.display = 'none';
         try {
-            const data = await apiCall('/api/generate-otp', { contact: email, type: 'email' });
+            const data = await apiCall('/api/generate-otp', { contact: email, type: 'email', purpose: 'signup' });
             if (data.success) {
                 goToSignupStep2();
             } else {
@@ -1110,7 +1110,7 @@
             return;
         }
         try {
-            const data = await apiCall('/api/generate-otp', { contact: email, type: 'email' });
+            const data = await apiCall('/api/generate-otp', { contact: email, type: 'email', purpose: 'inquiry' });
             if (data.success) {
                 document.getElementById('otpSection').style.display = 'block';
                 inqSendOtpBtn.disabled = true;

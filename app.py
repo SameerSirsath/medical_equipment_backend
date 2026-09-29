@@ -480,9 +480,10 @@ def login():
 # ==================== OTP ====================
 @app.route('/api/generate-otp', methods=['POST'])
 def generate_otp_route():
-    data = request.get_json()
+    data = request.get_json() or {}
     contact = data.get('contact', '').strip()
     contact_type = data.get('type', 'email')
+    purpose = data.get('purpose', 'verification')
 
     if not contact:
         return jsonify({'error': 'Contact is required'}), 400
@@ -501,11 +502,14 @@ def generate_otp_route():
 
     if contact_type == 'email':
         try:
-            send_otp_email(contact, otp)
-            print(f"✅ OTP email sent to {contact}")
+            sent = send_otp_email(contact, otp, purpose=purpose)
+            if not sent:
+                app.logger.error("Failed to send OTP email via configured email service/SMTP.")
+                return jsonify({'error': 'Failed to send OTP email. Please check email service configuration.'}), 500
+            print(f"✅ OTP email ({purpose}) sent to {contact}")
         except Exception as e:
             app.logger.error(f"Failed to send OTP email: {e}")
-            return jsonify({'error': 'Failed to send OTP email. Check SMTP settings.'}), 500
+            return jsonify({'error': 'Failed to send OTP email. Check email settings.'}), 500
 
     return jsonify({'success': True, 'message': 'OTP sent'})
 
@@ -596,10 +600,13 @@ def send_login_otp():
 
     if contact_type == 'email':
         try:
-            send_otp_email(contact, otp_code)
+            sent = send_otp_email(contact, otp_code, purpose="login")
+            if not sent:
+                app.logger.error("Failed to send login OTP email via configured email service/SMTP.")
+                return jsonify({'error': 'Failed to send OTP email. Please check email service configuration.'}), 500
         except Exception as e:
             app.logger.error(f"Failed to send login OTP email: {e}")
-            return jsonify({'error': 'Failed to send OTP email. Check SMTP settings.'}), 500
+            return jsonify({'error': 'Failed to send OTP email. Check email settings.'}), 500
 
     session['login_otp_user_id'] = user['id']
     return jsonify({'success': True, 'message': 'OTP sent successfully'})

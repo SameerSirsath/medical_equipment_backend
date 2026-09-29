@@ -646,7 +646,7 @@ const ChatWidget = ({ avatarImg = '/IMG.png' }) => {
     setInqOtpStatusColor('red');
 
     try {
-      const data = await apiPost('/api/generate-otp', { contact: inqEmail, type: 'email' });
+      const data = await apiPost('/api/generate-otp', { contact: inqEmail, type: 'email', purpose: 'inquiry' });
       if (data.success) {
         setInqOtpSent(true);
         setInqOtpStatus('✅ OTP sent on your email.');
@@ -880,7 +880,7 @@ const ChatWidget = ({ avatarImg = '/IMG.png' }) => {
     startOtpTimer(setSignupOtpTimer, setSignupOtpExpiry, signupOtpIntervalRef);
 
     try {
-      const data = await apiPost('/api/generate-otp', { contact: signupEmail, type: 'email' });
+      const data = await apiPost('/api/generate-otp', { contact: signupEmail, type: 'email', purpose: 'signup' });
       if (data.success) {
         setSignupModalOpen(false); // Close signup modal
         setSignupOtpModalOpen(true); // Open separate OTP verification modal
