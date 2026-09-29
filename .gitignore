@@ -49,6 +49,7 @@ medibot-react/node_modules/
 medibot-react.zip
 export.py
 run.bat
+run_dev.bat
 check_db_time_format.py
 db_helper.py.backup
 model_list_test.py

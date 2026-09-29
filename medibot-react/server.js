@@ -1,6 +1,7 @@
 import express from 'express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import path from 'path';
+import fs from 'fs';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
 
@@ -44,15 +45,15 @@ app.use('/accept_terms', proxy);
 app.use('/admin', proxy);
 app.use('/static', proxy);   // for the avatar image
 
-// Production: serve static React build
-if (process.env.NODE_ENV === 'production') {
-  const distPath = path.join(__dirname, 'dist');
+// Serve static React build if dist exists
+const distPath = path.join(__dirname, 'dist');
+if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));
   app.get('*', (req, res) => {
     res.sendFile(path.join(distPath, 'index.html'));
   });
 } else {
-  console.log('⚙️ Development: Node proxies to Flask, Vite serves React.');
+  console.log('⚙️ Development: dist not found. Run "npm run build" to build static files or use Vite on port 5175.');
 }
 
 // 404 fallback

@@ -68,15 +68,24 @@ class ConnectionPool:
 
     def get_connection(self):
         # Try to reuse an existing connection
-        for conn in self._connections:
+        dead_connections = []
+        for conn in list(self._connections):
             if conn not in self._in_use:
                 try:
                     conn.ping(reconnect=True)
                     self._in_use.add(conn)
                     return conn
                 except Exception:
-                    self._connections.remove(conn)
-                    break
+                    dead_connections.append(conn)
+
+        for dead in dead_connections:
+            if dead in self._connections:
+                self._connections.remove(dead)
+            try:
+                dead.close()
+            except Exception:
+                pass
+
         # Create new connection if under limit
         if len(self._connections) < self.max_connections:
             conn = pymysql.connect(**self.config)

@@ -29,9 +29,9 @@ else:
     groq_keys = [k.strip() for k in GROQ_KEYS.split(",") if is_valid_key(k)]
 groq_keys = [k for k in groq_keys if is_valid_key(k)]
 
-GROQ_MODELS = [m.strip() for m in os.getenv("GROQ_MODELS", "groq/compound-mini,qwen/qwen3.8-27b,llama-3.1-8b-instant,mixtral-8x7b-32768").split(",") if m.strip()]
+GROQ_MODELS = [m.strip() for m in os.getenv("GROQ_MODELS", "qwen/qwen3.8-27b,groq/compound,groq/compound-mini,llama-3.1-8b-instant,mixtral-8x7b-32768").split(",") if m.strip()]
 # Guarantee active Groq models are available in the fallback list
-for fallback_m in ["groq/compound-mini", "qwen/qwen3.8-27b", "groq/compound"]:
+for fallback_m in ["qwen/qwen3.8-27b", "groq/compound", "groq/compound-mini"]:
     if fallback_m not in GROQ_MODELS:
         GROQ_MODELS.append(fallback_m)
 
